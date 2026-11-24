@@ -22,9 +22,23 @@ export function FiltroPeriodo({
   const hoje = hojeISO();
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Input type="date" className="w-40" value={inicio} max={fim || undefined} onChange={(e) => aoMudar(e.target.value, fim)} aria-label="Data inicial" />
+      <Input
+        type="date"
+        className="w-40"
+        value={inicio}
+        max={fim || undefined}
+        onChange={(e) => aoMudar(e.target.value, fim)}
+        aria-label="Data inicial"
+      />
       <span className="text-sm text-slate-400">até</span>
-      <Input type="date" className="w-40" value={fim} min={inicio || undefined} onChange={(e) => aoMudar(inicio, e.target.value)} aria-label="Data final" />
+      <Input
+        type="date"
+        className="w-40"
+        value={fim}
+        min={inicio || undefined}
+        onChange={(e) => aoMudar(inicio, e.target.value)}
+        aria-label="Data final"
+      />
       <div className="flex gap-1">
         {atalho(hoje, hoje, 'Hoje')}
         {atalho(inicioDoMesISO(), hoje, 'Este mês')}

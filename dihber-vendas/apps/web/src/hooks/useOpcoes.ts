@@ -24,6 +24,9 @@ export function useOpcoes(endpoint: '/supervisores' | '/vendedores', habilitado 
       .filter((x) => x.ativo)
       .map((x) => ({ valor: x.id, label: `${x.codigo} - ${x.nome}` })),
     /** inclui inativos (para não perder o valor atual na edição) */
-    todasOpcoes: lista.map((x) => ({ valor: x.id, label: `${x.codigo} - ${x.nome}${x.ativo ? '' : ' (inativo)'}` })),
+    todasOpcoes: lista.map((x) => ({
+      valor: x.id,
+      label: `${x.codigo} - ${x.nome}${x.ativo ? '' : ' (inativo)'}`,
+    })),
   };
 }

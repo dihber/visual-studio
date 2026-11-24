@@ -7,9 +7,16 @@ const ids: Record<string, string> = {};
 beforeAll(async () => {
   c = await montarCenario();
   const enviar = async (token: string, nome: string, qtd: number) => {
-    const p = novoPedido(c.cliente.id, [{ produtoId: c.produto.id, tipoEmbalagem: 'UN', quantidade: qtd }]);
+    const p = novoPedido(c.cliente.id, [
+      { produtoId: c.produto.id, tipoEmbalagem: 'UN', quantidade: qtd },
+    ]);
     ids[nome] = p.id;
-    await c.app.inject({ method: 'POST', url: '/api/v1/sync/pedidos', headers: auth(token), payload: { dispositivo, pedidos: [p] } });
+    await c.app.inject({
+      method: 'POST',
+      url: '/api/v1/sync/pedidos',
+      headers: auth(token),
+      payload: { dispositivo, pedidos: [p] },
+    });
   };
   await enviar(c.tokens.vendedor1, 'v1', 10); // 105,00
   await enviar(c.tokens.vendedor2, 'v2', 20); // 210,00
@@ -19,7 +26,8 @@ afterAll(async () => {
   await c.app.close();
 });
 
-const get = (url: string, token: string) => c.app.inject({ method: 'GET', url: `/api/v1${url}`, headers: auth(token) });
+const get = (url: string, token: string) =>
+  c.app.inject({ method: 'GET', url: `/api/v1${url}`, headers: auth(token) });
 const post = (url: string, token: string, payload?: object) =>
   c.app.inject({ method: 'POST', url: `/api/v1${url}`, headers: auth(token), payload });
 
@@ -37,7 +45,9 @@ describe('visibilidade de pedidos', () => {
     expect(r.dados.map((p: { id: string }) => p.id)).toEqual([ids.v1]);
   });
   it('filtros por status e vendedor', async () => {
-    const r = (await get(`/pedidos?vendedorId=${c.vend2.id}&status=PENDENTE`, c.tokens.admin)).json();
+    const r = (
+      await get(`/pedidos?vendedorId=${c.vend2.id}&status=PENDENTE`, c.tokens.admin)
+    ).json();
     expect(r.total).toBe(1);
     expect(r.dados[0].dispositivo.modelo).toBe('Samsung SM-A155M');
     expect(r.dados[0]._count.itens).toBe(1);
@@ -62,7 +72,9 @@ describe('aprovar / reprovar', () => {
     expect(det.avaliadoPor.nome).toBe('Sup A');
     expect(det.avaliadoEm).toBeTruthy();
     expect(det.itens[0].produto.codigo).toBe('P1');
-    expect((await post(`/pedidos/${ids.v1}/reprovar`, c.tokens.admin, { motivo: 'teste' })).statusCode).toBe(409);
+    expect(
+      (await post(`/pedidos/${ids.v1}/reprovar`, c.tokens.admin, { motivo: 'teste' })).statusCode,
+    ).toBe(409);
   });
 });
 
@@ -73,7 +85,9 @@ describe('resumo, vendas da equipe e exportação', () => {
   });
   it('vendas por vendedor da equipe', async () => {
     const r = (await get('/pedidos/vendas-equipe', c.tokens.supervisor)).json();
-    expect(r.map((x: { vendedor: { codigo: string }; total: number }) => [x.vendedor.codigo, x.total])).toEqual([
+    expect(
+      r.map((x: { vendedor: { codigo: string }; total: number }) => [x.vendedor.codigo, x.total]),
+    ).toEqual([
       ['V2', 210],
       ['V1', 105],
     ]);

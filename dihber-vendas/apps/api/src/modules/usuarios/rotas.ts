@@ -34,16 +34,19 @@ export async function rotasUsuarios(app: FastifyInstance) {
   app.addHook('preHandler', app.exigirPerfil('ADMIN'));
 
   app.get('/usuarios', async (req) => {
-    const q = listagemQuerySchema
-      .extend({ perfil: z.enum(PERFIS).optional() })
-      .parse(req.query);
+    const q = listagemQuerySchema.extend({ perfil: z.enum(PERFIS).optional() }).parse(req.query);
     const where = {
       ...filtroAtivo(q),
       ...(q.perfil ? { perfil: q.perfil } : {}),
       ...contem(q.busca, ['nome', 'login']),
     };
     const [dados, total] = await Promise.all([
-      prisma.usuario.findMany({ where, select: selectUsuario, orderBy: { nome: 'asc' }, ...paginar(q) }),
+      prisma.usuario.findMany({
+        where,
+        select: selectUsuario,
+        orderBy: { nome: 'asc' },
+        ...paginar(q),
+      }),
       prisma.usuario.count({ where }),
     ]);
     return { dados, total, pagina: q.pagina, porPagina: q.porPagina };
@@ -75,7 +78,10 @@ export async function rotasUsuarios(app: FastifyInstance) {
     const { id } = idParams.parse(req.params);
     const dados = usuarioAtualizarSchema.parse(req.body);
     if (id === req.usuario.id && (!dados.ativo || dados.perfil !== 'ADMIN'))
-      throw new ErroHttp(400, 'Você não pode inativar ou remover o perfil de administrador do próprio usuário');
+      throw new ErroHttp(
+        400,
+        'Você não pode inativar ou remover o perfil de administrador do próprio usuário',
+      );
     const u = await prisma.usuario.update({ where: { id }, data: dados, select: selectUsuario });
     if (!u.ativo) await revogarSessoesDoUsuario(id);
     return u;
@@ -86,7 +92,11 @@ export async function rotasUsuarios(app: FastifyInstance) {
     const { ativo } = ativoSchema.parse(req.body);
     if (id === req.usuario.id && !ativo)
       throw new ErroHttp(400, 'Você não pode inativar o próprio usuário');
-    const u = await prisma.usuario.update({ where: { id }, data: { ativo }, select: selectUsuario });
+    const u = await prisma.usuario.update({
+      where: { id },
+      data: { ativo },
+      select: selectUsuario,
+    });
     if (!ativo) await revogarSessoesDoUsuario(id);
     return u;
   });

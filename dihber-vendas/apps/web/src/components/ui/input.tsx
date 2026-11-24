@@ -1,4 +1,9 @@
-import { forwardRef, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import {
+  forwardRef,
+  type InputHTMLAttributes,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from 'react';
 import { cn } from '@/lib/utils';
 
 const base =
@@ -18,12 +23,23 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
 );
 Select.displayName = 'Select';
 
-export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  ({ className, ...p }, ref) => <textarea ref={ref} className={cn(base, 'py-2 min-h-20', className)} {...p} />,
-);
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement>
+>(({ className, ...p }, ref) => (
+  <textarea ref={ref} className={cn(base, 'py-2 min-h-20', className)} {...p} />
+));
 Textarea.displayName = 'Textarea';
 
-export function Label({ children, htmlFor, obrigatorio }: { children: React.ReactNode; htmlFor?: string; obrigatorio?: boolean }) {
+export function Label({
+  children,
+  htmlFor,
+  obrigatorio,
+}: {
+  children: React.ReactNode;
+  htmlFor?: string;
+  obrigatorio?: boolean;
+}) {
   return (
     <label htmlFor={htmlFor} className="mb-1 block text-sm font-medium text-slate-700">
       {children}
@@ -54,7 +70,15 @@ export function Campo({
   );
 }
 
-export function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+export function Checkbox({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-700">
       <input

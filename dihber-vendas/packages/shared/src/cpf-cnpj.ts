@@ -16,7 +16,8 @@ export function validarCnpj(valor: string): boolean {
   const cnpj = somenteDigitos(valor);
   if (cnpj.length !== 14 || /^(\d)\1+$/.test(cnpj)) return false;
   const calc = (n: number) => {
-    const pesos = n === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const pesos =
+      n === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
     const soma = pesos.reduce((s, p, i) => s + Number(cnpj[i]) * p, 0);
     const r = soma % 11;
     return r < 2 ? 0 : 11 - r;

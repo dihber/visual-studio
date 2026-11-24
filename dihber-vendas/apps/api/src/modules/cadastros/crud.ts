@@ -49,7 +49,12 @@ export function registrarCrud(app: FastifyInstance, o: OpcoesCrud) {
       ],
     };
     const [dados, total] = await Promise.all([
-      delegate.findMany({ where, include: o.include, orderBy: { [o.ordenarPor]: 'asc' }, ...paginar(q) }),
+      delegate.findMany({
+        where,
+        include: o.include,
+        orderBy: { [o.ordenarPor]: 'asc' },
+        ...paginar(q),
+      }),
       delegate.count({ where }),
     ]);
     return { dados, total, pagina: q.pagina, porPagina: q.porPagina };

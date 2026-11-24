@@ -1,5 +1,10 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { lerSessao, login as apiLogin, logout as apiLogout, type UsuarioLogado } from '@/api/cliente';
+import {
+  lerSessao,
+  login as apiLogin,
+  logout as apiLogout,
+  type UsuarioLogado,
+} from '@/api/cliente';
 
 interface AuthCtx {
   usuario: UsuarioLogado | null;

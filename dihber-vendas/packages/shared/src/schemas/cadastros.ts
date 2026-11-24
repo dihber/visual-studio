@@ -33,11 +33,7 @@ export const clienteSchema = z.object({
   codigo,
   razaoSocial: z.string().trim().min(2, 'Informe a razão social').max(200),
   nomeFantasia: textoOpcional,
-  cpfCnpj: z
-    .string()
-    .trim()
-    .transform(somenteDigitos)
-    .refine(validarCpfCnpj, 'CPF/CNPJ inválido'),
+  cpfCnpj: z.string().trim().transform(somenteDigitos).refine(validarCpfCnpj, 'CPF/CNPJ inválido'),
   telefone: textoOpcional,
   email: emailOpcional,
   endereco: textoOpcional,

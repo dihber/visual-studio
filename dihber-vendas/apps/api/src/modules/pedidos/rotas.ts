@@ -18,7 +18,12 @@ const idParams = z.object({ id: z.string().uuid('ID inválido') });
 const includeLista = {
   cliente: { select: { id: true, codigo: true, razaoSocial: true, nomeFantasia: true } },
   vendedor: {
-    select: { id: true, codigo: true, nome: true, supervisor: { select: { id: true, nome: true } } },
+    select: {
+      id: true,
+      codigo: true,
+      nome: true,
+      supervisor: { select: { id: true, nome: true } },
+    },
   },
   dispositivo: { select: { id: true, modelo: true, sistema: true } },
   _count: { select: { itens: true } },
@@ -31,7 +36,12 @@ export async function rotasPedidos(app: FastifyInstance) {
     const q = pedidosQuerySchema.parse(req.query);
     const where = montarFiltroPedidos(req.usuario, q);
     const [dados, total] = await Promise.all([
-      prisma.pedido.findMany({ where, include: includeLista, orderBy: { numero: 'desc' }, ...paginar(q) }),
+      prisma.pedido.findMany({
+        where,
+        include: includeLista,
+        orderBy: { numero: 'desc' },
+        ...paginar(q),
+      }),
       prisma.pedido.count({ where }),
     ]);
     return { dados, total, pagina: q.pagina, porPagina: q.porPagina };
@@ -115,21 +125,49 @@ export async function rotasPedidos(app: FastifyInstance) {
     });
     const linhas: (string | number)[][] = [
       [
-        'Número', 'Data', 'Status', 'Cliente (código)', 'Cliente', 'CPF/CNPJ', 'Vendedor', 'Supervisor',
-        'Celular', 'Produto (código)', 'Produto', 'Tipo', 'Quantidade', 'Qtd em UN', 'Preço UN',
-        'Total item', 'Total pedido',
+        'Número',
+        'Data',
+        'Status',
+        'Cliente (código)',
+        'Cliente',
+        'CPF/CNPJ',
+        'Vendedor',
+        'Supervisor',
+        'Celular',
+        'Produto (código)',
+        'Produto',
+        'Tipo',
+        'Quantidade',
+        'Qtd em UN',
+        'Preço UN',
+        'Total item',
+        'Total pedido',
       ],
     ];
     const num = (v: { toNumber(): number } | number) =>
-      (typeof v === 'number' ? v : v.toNumber()).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+      (typeof v === 'number' ? v : v.toNumber()).toLocaleString('pt-BR', {
+        maximumFractionDigits: 3,
+      });
     for (const p of pedidos) {
       for (const i of p.itens) {
         linhas.push([
-          p.numero, formatarDataHora(p.criadoNoAppEm), STATUS_PEDIDO_LABEL[p.status],
-          p.cliente.codigo, p.cliente.razaoSocial, formatarCpfCnpj(p.cliente.cpfCnpj),
-          p.vendedor.nome, p.vendedor.supervisor?.nome ?? '', p.dispositivo.modelo ?? '',
-          i.produto.codigo, i.produto.descricao, i.tipoEmbalagem, num(i.quantidade),
-          num(i.qtdUnidades), num(i.precoUnitario), num(i.valorTotal), num(p.valorTotal),
+          p.numero,
+          formatarDataHora(p.criadoNoAppEm),
+          STATUS_PEDIDO_LABEL[p.status],
+          p.cliente.codigo,
+          p.cliente.razaoSocial,
+          formatarCpfCnpj(p.cliente.cpfCnpj),
+          p.vendedor.nome,
+          p.vendedor.supervisor?.nome ?? '',
+          p.dispositivo.modelo ?? '',
+          i.produto.codigo,
+          i.produto.descricao,
+          i.tipoEmbalagem,
+          num(i.quantidade),
+          num(i.qtdUnidades),
+          num(i.precoUnitario),
+          num(i.valorTotal),
+          num(p.valorTotal),
         ]);
       }
     }
@@ -156,7 +194,15 @@ export async function rotasPedidos(app: FastifyInstance) {
         avaliadoPor: { select: { id: true, nome: true } },
         itens: {
           include: {
-            produto: { select: { id: true, codigo: true, descricao: true, embalagem: true, qtdPorCaixa: true } },
+            produto: {
+              select: {
+                id: true,
+                codigo: true,
+                descricao: true,
+                embalagem: true,
+                qtdPorCaixa: true,
+              },
+            },
           },
           orderBy: { produto: { descricao: 'asc' } },
         },
@@ -188,7 +234,12 @@ export async function rotasPedidos(app: FastifyInstance) {
     { preHandler: [app.exigirPerfil('ADMIN', 'SUPERVISOR')] },
     async (req) => {
       const { id } = idParams.parse(req.params);
-      return avaliar(req.usuario, id, { status: 'APROVADO', motivoReprovacao: null }, filtroVisibilidadePedidos(req.usuario));
+      return avaliar(
+        req.usuario,
+        id,
+        { status: 'APROVADO', motivoReprovacao: null },
+        filtroVisibilidadePedidos(req.usuario),
+      );
     },
   );
 
@@ -198,7 +249,12 @@ export async function rotasPedidos(app: FastifyInstance) {
     async (req) => {
       const { id } = idParams.parse(req.params);
       const { motivo } = reprovarSchema.parse(req.body);
-      return avaliar(req.usuario, id, { status: 'REPROVADO', motivoReprovacao: motivo }, filtroVisibilidadePedidos(req.usuario));
+      return avaliar(
+        req.usuario,
+        id,
+        { status: 'REPROVADO', motivoReprovacao: motivo },
+        filtroVisibilidadePedidos(req.usuario),
+      );
     },
   );
 }

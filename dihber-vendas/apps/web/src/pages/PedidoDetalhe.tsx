@@ -2,7 +2,13 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, X } from 'lucide-react';
-import { formatarCpfCnpj, formatarDataHora, formatarMoeda, formatarQuantidade, reprovarSchema } from '@dihber/shared';
+import {
+  formatarCpfCnpj,
+  formatarDataHora,
+  formatarMoeda,
+  formatarQuantidade,
+  reprovarSchema,
+} from '@dihber/shared';
 import { http } from '@/api/cliente';
 import type { PedidoDetalhe as Pedido } from '@/api/tipos';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,7 +28,10 @@ export function PedidoDetalhe() {
   const [motivo, setMotivo] = useState('');
   const [erro, setErro] = useState('');
 
-  const q = useQuery({ queryKey: ['/pedidos', id], queryFn: () => http.get<Pedido>(`/pedidos/${id}`) });
+  const q = useQuery({
+    queryKey: ['/pedidos', id],
+    queryFn: () => http.get<Pedido>(`/pedidos/${id}`),
+  });
 
   const avaliar = useMutation({
     mutationFn: (acao: 'aprovar' | 'reprovar') =>
@@ -38,11 +47,15 @@ export function PedidoDetalhe() {
   if (q.isLoading) return <p className="text-slate-500">Carregando...</p>;
   if (q.error || !q.data) return <Alerta>{q.error?.message ?? 'Pedido não encontrado'}</Alerta>;
   const p = q.data;
-  const podeAvaliar = p.status === 'PENDENTE' && (usuario?.perfil === 'ADMIN' || usuario?.perfil === 'SUPERVISOR');
+  const podeAvaliar =
+    p.status === 'PENDENTE' && (usuario?.perfil === 'ADMIN' || usuario?.perfil === 'SUPERVISOR');
 
   return (
     <div className="space-y-4">
-      <Link to="/pedidos" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
+      <Link
+        to="/pedidos"
+        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"
+      >
         <ArrowLeft className="h-4 w-4" /> Voltar para pedidos
       </Link>
 
@@ -53,13 +66,25 @@ export function PedidoDetalhe() {
         </div>
         {podeAvaliar && (
           <div className="flex gap-2">
-            <Button variante="perigo" onClick={() => { setErro(''); setMotivo(''); setReprovando(true); }}>
+            <Button
+              variante="perigo"
+              onClick={() => {
+                setErro('');
+                setMotivo('');
+                setReprovando(true);
+              }}
+            >
               <X className="h-4 w-4" /> Reprovar
             </Button>
             <Button
               variante="sucesso"
               carregando={avaliar.isPending && !reprovando}
-              onClick={() => { if (confirm(`Aprovar o pedido nº ${p.numero}?`)) { setErro(''); avaliar.mutate('aprovar'); } }}
+              onClick={() => {
+                if (confirm(`Aprovar o pedido nº ${p.numero}?`)) {
+                  setErro('');
+                  avaliar.mutate('aprovar');
+                }
+              }}
             >
               <Check className="h-4 w-4" /> Aprovar
             </Button>
@@ -81,7 +106,10 @@ export function PedidoDetalhe() {
             <Info rotulo="Razão social" valor={`${p.cliente.codigo} - ${p.cliente.razaoSocial}`} />
             {p.cliente.nomeFantasia && <Info rotulo="Fantasia" valor={p.cliente.nomeFantasia} />}
             <Info rotulo="CPF/CNPJ" valor={formatarCpfCnpj(p.cliente.cpfCnpj)} />
-            <Info rotulo="Cidade" valor={[p.cliente.cidade, p.cliente.uf].filter(Boolean).join(' / ') || '-'} />
+            <Info
+              rotulo="Cidade"
+              valor={[p.cliente.cidade, p.cliente.uf].filter(Boolean).join(' / ') || '-'}
+            />
             <Info rotulo="Telefone" valor={p.cliente.telefone ?? '-'} />
           </dl>
         </Card>
@@ -90,7 +118,12 @@ export function PedidoDetalhe() {
           <dl className="space-y-1 px-5 py-4 text-sm">
             <Info rotulo="Vendedor" valor={`${p.vendedor.codigo} - ${p.vendedor.nome}`} />
             <Info rotulo="Supervisor" valor={p.vendedor.supervisor?.nome ?? '-'} />
-            <Info rotulo="Celular" valor={[p.dispositivo.modelo, p.dispositivo.sistema].filter(Boolean).join(' · ') || '-'} />
+            <Info
+              rotulo="Celular"
+              valor={
+                [p.dispositivo.modelo, p.dispositivo.sistema].filter(Boolean).join(' · ') || '-'
+              }
+            />
             <Info rotulo="Versão do app" valor={p.dispositivo.appVersao ?? '-'} />
           </dl>
         </Card>
@@ -110,7 +143,9 @@ export function PedidoDetalhe() {
       </div>
 
       <Card>
-        <CardTitulo acoes={<span className="text-lg font-semibold">{formatarMoeda(p.valorTotal)}</span>}>
+        <CardTitulo
+          acoes={<span className="text-lg font-semibold">{formatarMoeda(p.valorTotal)}</span>}
+        >
           Itens ({p.itens.length})
         </CardTitulo>
         <Tabela>
@@ -136,7 +171,9 @@ export function PedidoDetalhe() {
                 <Td className="text-right">{formatarQuantidade(i.quantidade)}</Td>
                 <Td className="text-right">{formatarQuantidade(i.qtdUnidades)}</Td>
                 <Td className="whitespace-nowrap text-right">{formatarMoeda(i.precoUnitario)}</Td>
-                <Td className="whitespace-nowrap text-right font-medium">{formatarMoeda(i.valorTotal)}</Td>
+                <Td className="whitespace-nowrap text-right font-medium">
+                  {formatarMoeda(i.valorTotal)}
+                </Td>
               </tr>
             ))}
           </tbody>
@@ -154,7 +191,9 @@ export function PedidoDetalhe() {
         titulo={`Reprovar pedido nº ${p.numero}`}
         rodape={
           <>
-            <Button variante="secundario" onClick={() => setReprovando(false)}>Cancelar</Button>
+            <Button variante="secundario" onClick={() => setReprovando(false)}>
+              Cancelar
+            </Button>
             <Button
               variante="perigo"
               carregando={avaliar.isPending}
@@ -171,10 +210,20 @@ export function PedidoDetalhe() {
         }
       >
         <Campo label="Motivo da reprovação" obrigatorio>
-          <Textarea autoFocus value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={500} placeholder="Ex.: cliente com pendência financeira" />
+          <Textarea
+            autoFocus
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            maxLength={500}
+            placeholder="Ex.: cliente com pendência financeira"
+          />
         </Campo>
-        <p className="mt-1 text-xs text-slate-500">O vendedor verá este motivo no app após sincronizar.</p>
-        <div className="mt-3"><Alerta>{erro}</Alerta></div>
+        <p className="mt-1 text-xs text-slate-500">
+          O vendedor verá este motivo no app após sincronizar.
+        </p>
+        <div className="mt-3">
+          <Alerta>{erro}</Alerta>
+        </div>
       </Dialog>
     </div>
   );

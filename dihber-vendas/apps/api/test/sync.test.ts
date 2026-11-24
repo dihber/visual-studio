@@ -40,7 +40,10 @@ describe('POST /sync/pedidos', () => {
     expect(body.aceitos).toHaveLength(1);
     expect(body.aceitos[0].numero).toBeGreaterThan(0);
 
-    const salvo = await prisma.pedido.findUnique({ where: { id: p.id }, include: { itens: true, dispositivo: true } });
+    const salvo = await prisma.pedido.findUnique({
+      where: { id: p.id },
+      include: { itens: true, dispositivo: true },
+    });
     expect(salvo!.valorTotal.toNumber()).toBe(149.97);
     expect(salvo!.vendedorId).toBe(c.vend1.id);
     expect(salvo!.dispositivo.deviceId).toBe(dispositivo.deviceId);
@@ -50,36 +53,57 @@ describe('POST /sync/pedidos', () => {
   });
 
   it('é idempotente: reenvio não duplica e devolve o mesmo número', async () => {
-    const p = novoPedido(c.cliente.id, [{ produtoId: c.produto.id, tipoEmbalagem: 'UN', quantidade: 1 }]);
+    const p = novoPedido(c.cliente.id, [
+      { produtoId: c.produto.id, tipoEmbalagem: 'UN', quantidade: 1 },
+    ]);
     const r1 = (await enviar(c.tokens.vendedor1, [p])).json();
     const r2 = (await enviar(c.tokens.vendedor1, [p])).json();
     expect(r2.aceitos[0].numero).toBe(r1.aceitos[0].numero);
     expect(await prisma.pedido.count({ where: { id: p.id } })).toBe(1);
     // envio concorrente
-    const p2 = novoPedido(c.cliente.id, [{ produtoId: c.produto.id, tipoEmbalagem: 'UN', quantidade: 1 }]);
-    const [a, b] = await Promise.all([enviar(c.tokens.vendedor1, [p2]), enviar(c.tokens.vendedor1, [p2])]);
+    const p2 = novoPedido(c.cliente.id, [
+      { produtoId: c.produto.id, tipoEmbalagem: 'UN', quantidade: 1 },
+    ]);
+    const [a, b] = await Promise.all([
+      enviar(c.tokens.vendedor1, [p2]),
+      enviar(c.tokens.vendedor1, [p2]),
+    ]);
     expect(a.json().aceitos[0].numero).toBe(b.json().aceitos[0].numero);
     expect(await prisma.pedidoItem.count({ where: { pedidoId: p2.id } })).toBe(1);
   });
 
   it('outro vendedor não consegue reaproveitar o id', async () => {
-    const p = novoPedido(c.cliente.id, [{ produtoId: c.produto.id, tipoEmbalagem: 'UN', quantidade: 1 }]);
+    const p = novoPedido(c.cliente.id, [
+      { produtoId: c.produto.id, tipoEmbalagem: 'UN', quantidade: 1 },
+    ]);
     await enviar(c.tokens.vendedor1, [p]);
     const r = (await enviar(c.tokens.vendedor2, [p])).json();
     expect(r.rejeitados[0].erro).toMatch(/já utilizado/);
   });
 
   it('rejeita cliente inativo, produto inexistente e pedido inválido sem afetar os demais', async () => {
-    const ok = novoPedido(c.cliente.id, [{ produtoId: c.produto.id, tipoEmbalagem: 'UN', quantidade: 5 }]);
-    const inativo = novoPedido(c.clienteInativo.id, [{ produtoId: c.produto.id, tipoEmbalagem: 'UN', quantidade: 1 }]);
-    const semProduto = novoPedido(c.cliente.id, [{ produtoId: crypto.randomUUID(), tipoEmbalagem: 'UN', quantidade: 1 }]);
+    const ok = novoPedido(c.cliente.id, [
+      { produtoId: c.produto.id, tipoEmbalagem: 'UN', quantidade: 5 },
+    ]);
+    const inativo = novoPedido(c.clienteInativo.id, [
+      { produtoId: c.produto.id, tipoEmbalagem: 'UN', quantidade: 1 },
+    ]);
+    const semProduto = novoPedido(c.cliente.id, [
+      { produtoId: crypto.randomUUID(), tipoEmbalagem: 'UN', quantidade: 1 },
+    ]);
     const semItens = novoPedido(c.cliente.id, []);
     const r = (await enviar(c.tokens.vendedor1, [ok, inativo, semProduto, semItens])).json();
     expect(r.aceitos.map((a: { id: string }) => a.id)).toEqual([ok.id]);
     expect(r.rejeitados).toHaveLength(3);
-    expect(r.rejeitados.find((x: { id: string }) => x.id === inativo.id).erro).toMatch(/Cliente inativo/);
-    expect(r.rejeitados.find((x: { id: string }) => x.id === semProduto.id).erro).toMatch(/Produto não encontrado/);
-    expect(r.rejeitados.find((x: { id: string }) => x.id === semItens.id).erro).toMatch(/sem itens/);
+    expect(r.rejeitados.find((x: { id: string }) => x.id === inativo.id).erro).toMatch(
+      /Cliente inativo/,
+    );
+    expect(r.rejeitados.find((x: { id: string }) => x.id === semProduto.id).erro).toMatch(
+      /Produto não encontrado/,
+    );
+    expect(r.rejeitados.find((x: { id: string }) => x.id === semItens.id).erro).toMatch(
+      /sem itens/,
+    );
   });
 
   it('somente vendedor sincroniza', async () => {
@@ -108,7 +132,10 @@ describe('GET /sync/dados', () => {
     expect(vazio.statusPedidos).toHaveLength(0);
 
     await prisma.produto.update({ where: { id: c.produto2.id }, data: { ativo: false } });
-    await prisma.cliente.update({ where: { id: c.cliente.id }, data: { telefone: '(11) 1234-5678' } });
+    await prisma.cliente.update({
+      where: { id: c.cliente.id },
+      data: { telefone: '(11) 1234-5678' },
+    });
     const delta = (await dados(c.tokens.vendedor1, primeiro.servidorAgora)).json();
     expect(delta.produtos).toHaveLength(1);
     expect(delta.produtos[0].ativo).toBe(false);
@@ -117,7 +144,9 @@ describe('GET /sync/dados', () => {
 
   it('status de pedidos aprovados/reprovados volta para o app', async () => {
     const antes = (await dados(c.tokens.vendedor1)).json();
-    const p = await prisma.pedido.findFirst({ where: { vendedorId: c.vend1.id, status: 'PENDENTE' } });
+    const p = await prisma.pedido.findFirst({
+      where: { vendedorId: c.vend1.id, status: 'PENDENTE' },
+    });
     const rep = await c.app.inject({
       method: 'POST',
       url: `/api/v1/pedidos/${p!.id}/reprovar`,

@@ -23,10 +23,22 @@ export interface Cenario {
   clienteInativo: { id: string };
   produto: { id: string };
   produto2: { id: string };
-  tokens: { admin: string; supervisor: string; supervisorB: string; vendedor1: string; vendedor2: string; vendedorB: string };
+  tokens: {
+    admin: string;
+    supervisor: string;
+    supervisorB: string;
+    vendedor1: string;
+    vendedor2: string;
+    vendedorB: string;
+  };
 }
 
-export const dispositivo = { deviceId: 'device-teste-1', modelo: 'Samsung SM-A155M', sistema: 'Android 14', appVersao: '1.0.0' };
+export const dispositivo = {
+  deviceId: 'device-teste-1',
+  modelo: 'Samsung SM-A155M',
+  sistema: 'Android 14',
+  appVersao: '1.0.0',
+};
 
 export async function montarCenario(): Promise<Cenario> {
   await limparBanco();
@@ -35,9 +47,15 @@ export async function montarCenario(): Promise<Cenario> {
 
   const supA = await prisma.supervisor.create({ data: { codigo: 'SA', nome: 'Supervisor A' } });
   const supB = await prisma.supervisor.create({ data: { codigo: 'SB', nome: 'Supervisor B' } });
-  const vend1 = await prisma.vendedor.create({ data: { codigo: 'V1', nome: 'Vendedor 1', supervisorId: supA.id } });
-  const vend2 = await prisma.vendedor.create({ data: { codigo: 'V2', nome: 'Vendedor 2', supervisorId: supA.id } });
-  const vendOutraEquipe = await prisma.vendedor.create({ data: { codigo: 'V3', nome: 'Vendedor B', supervisorId: supB.id } });
+  const vend1 = await prisma.vendedor.create({
+    data: { codigo: 'V1', nome: 'Vendedor 1', supervisorId: supA.id },
+  });
+  const vend2 = await prisma.vendedor.create({
+    data: { codigo: 'V2', nome: 'Vendedor 2', supervisorId: supA.id },
+  });
+  const vendOutraEquipe = await prisma.vendedor.create({
+    data: { codigo: 'V3', nome: 'Vendedor B', supervisorId: supB.id },
+  });
 
   await prisma.usuario.createMany({
     data: [
@@ -57,17 +75,34 @@ export async function montarCenario(): Promise<Cenario> {
     data: { codigo: 'C2', razaoSocial: 'Cliente Inativo', cpfCnpj: '52998224725', ativo: false },
   });
   const produto = await prisma.produto.create({
-    data: { codigo: 'P1', descricao: 'ARROZ 5KG', embalagem: 'CX C/ 6 UN', qtdPorCaixa: 6, precoUnitario: 10.5 },
+    data: {
+      codigo: 'P1',
+      descricao: 'ARROZ 5KG',
+      embalagem: 'CX C/ 6 UN',
+      qtdPorCaixa: 6,
+      precoUnitario: 10.5,
+    },
   });
   const produto2 = await prisma.produto.create({
-    data: { codigo: 'P2', descricao: 'FEIJÃO 1KG', embalagem: 'CX C/ 10 UN', qtdPorCaixa: 10, precoUnitario: 7.99 },
+    data: {
+      codigo: 'P2',
+      descricao: 'FEIJÃO 1KG',
+      embalagem: 'CX C/ 10 UN',
+      qtdPorCaixa: 10,
+      precoUnitario: 7.99,
+    },
   });
 
   const login = async (l: string, origem: 'web' | 'app') => {
     const r = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
-      payload: { login: l, senha: 'senha123', origem, ...(origem === 'app' ? { dispositivo: { ...dispositivo, deviceId: `dev-${l}` } } : {}) },
+      payload: {
+        login: l,
+        senha: 'senha123',
+        origem,
+        ...(origem === 'app' ? { dispositivo: { ...dispositivo, deviceId: `dev-${l}` } } : {}),
+      },
     });
     if (r.statusCode !== 200) throw new Error(`login ${l}: ${r.body}`);
     return r.json().accessToken as string;
@@ -82,11 +117,27 @@ export async function montarCenario(): Promise<Cenario> {
     vendedorB: await login('v3', 'app'),
   };
 
-  return { app, supA, supB, vend1, vend2, vendOutraEquipe, cliente, clienteInativo, produto, produto2, tokens };
+  return {
+    app,
+    supA,
+    supB,
+    vend1,
+    vend2,
+    vendOutraEquipe,
+    cliente,
+    clienteInativo,
+    produto,
+    produto2,
+    tokens,
+  };
 }
 
 export const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 
-export function novoPedido(clienteId: string, itens: { produtoId: string; tipoEmbalagem: 'CX' | 'UN'; quantidade: number }[], extra: Record<string, unknown> = {}) {
+export function novoPedido(
+  clienteId: string,
+  itens: { produtoId: string; tipoEmbalagem: 'CX' | 'UN'; quantidade: number }[],
+  extra: Record<string, unknown> = {},
+) {
   return { id: randomUUID(), clienteId, criadoNoAppEm: new Date().toISOString(), itens, ...extra };
 }

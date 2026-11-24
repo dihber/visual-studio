@@ -1,5 +1,15 @@
 import { NavLink, Navigate, Outlet } from 'react-router-dom';
-import { BarChart3, Boxes, ClipboardList, LogOut, Menu, Store, UserCog, Users, UsersRound } from 'lucide-react';
+import {
+  BarChart3,
+  Boxes,
+  ClipboardList,
+  LogOut,
+  Menu,
+  Store,
+  UserCog,
+  Users,
+  UsersRound,
+} from 'lucide-react';
 import { useState } from 'react';
 import { PERFIL_LABEL } from '@dihber/shared';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,7 +17,12 @@ import { cn } from '@/lib/utils';
 
 const MENU = [
   { para: '/pedidos', label: 'Pedidos', icone: ClipboardList, perfis: ['ADMIN', 'SUPERVISOR'] },
-  { para: '/vendas-equipe', label: 'Vendas da equipe', icone: BarChart3, perfis: ['ADMIN', 'SUPERVISOR'] },
+  {
+    para: '/vendas-equipe',
+    label: 'Vendas da equipe',
+    icone: BarChart3,
+    perfis: ['ADMIN', 'SUPERVISOR'],
+  },
   { para: '/clientes', label: 'Clientes', icone: Store, perfis: ['ADMIN', 'SUPERVISOR'] },
   { para: '/produtos', label: 'Produtos', icone: Boxes, perfis: ['ADMIN', 'SUPERVISOR'] },
   { para: '/vendedores', label: 'Vendedores', icone: Users, perfis: ['ADMIN'] },
@@ -31,7 +46,9 @@ export function AppLayout() {
         )}
       >
         <div className="flex h-16 items-center gap-2 border-b border-slate-100 px-5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white">DV</div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white">
+            DV
+          </div>
           <span className="text-lg font-semibold">DihberVendas</span>
         </div>
         <nav className="flex-1 space-y-1 p-3">
@@ -68,11 +85,20 @@ export function AppLayout() {
           </button>
         </div>
       </aside>
-      {menuAberto && <div className="fixed inset-0 z-30 bg-slate-900/30 lg:hidden" onClick={() => setMenuAberto(false)} />}
+      {menuAberto && (
+        <div
+          className="fixed inset-0 z-30 bg-slate-900/30 lg:hidden"
+          onClick={() => setMenuAberto(false)}
+        />
+      )}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center border-b border-slate-200 bg-white px-4 lg:hidden">
-          <button onClick={() => setMenuAberto(true)} className="rounded p-2 hover:bg-slate-100" aria-label="Abrir menu">
+          <button
+            onClick={() => setMenuAberto(true)}
+            className="rounded p-2 hover:bg-slate-100"
+            aria-label="Abrir menu"
+          >
             <Menu className="h-5 w-5" />
           </button>
           <span className="ml-2 font-semibold">DihberVendas</span>

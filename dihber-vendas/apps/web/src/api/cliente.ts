@@ -78,7 +78,11 @@ export function montarQuery(params: Record<string, unknown> = {}) {
   return s ? `?${s}` : '';
 }
 
-async function requisicaoBruta(caminho: string, init: RequestInit = {}, tentarRenovar = true): Promise<Response> {
+async function requisicaoBruta(
+  caminho: string,
+  init: RequestInit = {},
+  tentarRenovar = true,
+): Promise<Response> {
   const s = lerSessao();
   const headers = new Headers(init.headers);
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
@@ -108,13 +112,19 @@ export async function api<T>(caminho: string, init: RequestInit = {}): Promise<T
 
 export const http = {
   get: <T>(c: string, params?: Record<string, unknown>) => api<T>(c + montarQuery(params)),
-  post: <T>(c: string, body?: unknown) => api<T>(c, { method: 'POST', body: JSON.stringify(body ?? {}) }),
+  post: <T>(c: string, body?: unknown) =>
+    api<T>(c, { method: 'POST', body: JSON.stringify(body ?? {}) }),
   put: <T>(c: string, body: unknown) => api<T>(c, { method: 'PUT', body: JSON.stringify(body) }),
-  patch: <T>(c: string, body: unknown) => api<T>(c, { method: 'PATCH', body: JSON.stringify(body) }),
+  patch: <T>(c: string, body: unknown) =>
+    api<T>(c, { method: 'PATCH', body: JSON.stringify(body) }),
 };
 
 /** Baixa um arquivo autenticado (ex.: exportação CSV). */
-export async function baixarArquivo(caminho: string, params: Record<string, unknown>, nome: string) {
+export async function baixarArquivo(
+  caminho: string,
+  params: Record<string, unknown>,
+  nome: string,
+) {
   const r = await requisicaoBruta(caminho + montarQuery(params));
   const blob = await r.blob();
   const url = URL.createObjectURL(blob);

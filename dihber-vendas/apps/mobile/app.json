@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "DihberVendas",
+    "slug": "dihber-vendas",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "dihbervendas",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "br.com.dihber.vendas",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "br.com.dihber.vendas",
+      "adaptiveIcon": {
+        "backgroundColor": "#2563EB"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": ["expo-router", "expo-sqlite", "expo-secure-store"],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "apiUrl": "http://192.168.0.10:3333/api/v1"
+    },
+    "platforms": ["ios", "android"]
+  }
+}

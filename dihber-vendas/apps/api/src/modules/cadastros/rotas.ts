@@ -18,7 +18,10 @@ export async function rotasCadastros(app: FastifyInstance) {
     ordenarPor: 'nome',
     include: { _count: { select: { vendedores: true } } },
     includeDetalhe: {
-      vendedores: { select: { id: true, codigo: true, nome: true, ativo: true }, orderBy: { nome: 'asc' } },
+      vendedores: {
+        select: { id: true, codigo: true, nome: true, ativo: true },
+        orderBy: { nome: 'asc' },
+      },
       usuario: { select: { id: true, login: true, nome: true } },
     },
     perfisLeitura: ['ADMIN', 'SUPERVISOR'],

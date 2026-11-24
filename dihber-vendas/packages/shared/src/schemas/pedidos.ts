@@ -42,7 +42,12 @@ export interface SyncDadosResposta {
   servidorAgora: string;
   clientes: ClienteSync[];
   produtos: ProdutoSync[];
-  statusPedidos: { id: string; numero: number; status: (typeof STATUS_PEDIDO)[number]; motivoReprovacao: string | null }[];
+  statusPedidos: {
+    id: string;
+    numero: number;
+    status: (typeof STATUS_PEDIDO)[number];
+    motivoReprovacao: string | null;
+  }[];
 }
 
 export interface ClienteSync {

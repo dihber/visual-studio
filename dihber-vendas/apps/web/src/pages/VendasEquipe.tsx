@@ -14,7 +14,8 @@ import { FiltroPeriodo } from '@/components/FiltroPeriodo';
 import { hojeISO, inicioDoMesISO } from '@/lib/utils';
 
 const COR_BARRA = '#2563eb';
-const compacto = (v: number) => v.toLocaleString('pt-BR', { notation: 'compact', style: 'currency', currency: 'BRL' });
+const compacto = (v: number) =>
+  v.toLocaleString('pt-BR', { notation: 'compact', style: 'currency', currency: 'BRL' });
 
 export function VendasEquipe() {
   const { ehAdmin, usuario } = useAuth();
@@ -25,7 +26,12 @@ export function VendasEquipe() {
 
   const q = useQuery({
     queryKey: ['/pedidos/vendas-equipe', inicio, fim, supervisorId],
-    queryFn: () => http.get<VendaVendedor[]>('/pedidos/vendas-equipe', { dataInicio: inicio, dataFim: fim, supervisorId }),
+    queryFn: () =>
+      http.get<VendaVendedor[]>('/pedidos/vendas-equipe', {
+        dataInicio: inicio,
+        dataFim: fim,
+        supervisorId,
+      }),
   });
   const dados = (q.data ?? []).map((d) => ({ nome: d.vendedor?.nome ?? '-', ...d }));
   const total = dados.reduce((s, d) => s + d.total, 0);
@@ -42,11 +48,27 @@ export function VendasEquipe() {
       </div>
 
       <Card className="flex flex-wrap items-center gap-3 p-4">
-        <FiltroPeriodo inicio={inicio} fim={fim} aoMudar={(i, f) => { setInicio(i); setFim(f); }} />
+        <FiltroPeriodo
+          inicio={inicio}
+          fim={fim}
+          aoMudar={(i, f) => {
+            setInicio(i);
+            setFim(f);
+          }}
+        />
         {ehAdmin && (
-          <Select className="w-56" value={supervisorId} onChange={(e) => setSupervisorId(e.target.value)} aria-label="Supervisor">
+          <Select
+            className="w-56"
+            value={supervisorId}
+            onChange={(e) => setSupervisorId(e.target.value)}
+            aria-label="Supervisor"
+          >
             <option value="">Todas as equipes</option>
-            {supervisores.todasOpcoes.map((o) => <option key={o.valor} value={o.valor}>{o.label}</option>)}
+            {supervisores.todasOpcoes.map((o) => (
+              <option key={o.valor} value={o.valor}>
+                {o.label}
+              </option>
+            ))}
           </Select>
         )}
       </Card>
@@ -67,13 +89,33 @@ export function VendasEquipe() {
           <CardTitulo>Total vendido por vendedor</CardTitulo>
           <div className="p-4" style={{ height: Math.max(220, dados.length * 44 + 40) }}>
             {dados.length === 0 ? (
-              <p className="py-16 text-center text-sm text-slate-500">{q.isLoading ? 'Carregando...' : 'Sem vendas no período'}</p>
+              <p className="py-16 text-center text-sm text-slate-500">
+                {q.isLoading ? 'Carregando...' : 'Sem vendas no período'}
+              </p>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dados} layout="vertical" margin={{ left: 8, right: 24 }} barCategoryGap={8}>
+                <BarChart
+                  data={dados}
+                  layout="vertical"
+                  margin={{ left: 8, right: 24 }}
+                  barCategoryGap={8}
+                >
                   <CartesianGrid horizontal={false} stroke="#e2e8f0" />
-                  <XAxis type="number" tickFormatter={compacto} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="nome" width={130} tick={{ fontSize: 12, fill: '#334155' }} axisLine={false} tickLine={false} />
+                  <XAxis
+                    type="number"
+                    tickFormatter={compacto}
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="nome"
+                    width={130}
+                    tick={{ fontSize: 12, fill: '#334155' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <Tooltip
                     cursor={{ fill: '#f1f5f9' }}
                     formatter={(v: number) => [formatarMoeda(v), 'Total']}
@@ -111,7 +153,9 @@ export function VendasEquipe() {
                       </Link>
                     </Td>
                     <Td className="text-right">{d.pedidos}</Td>
-                    <Td className="whitespace-nowrap text-right font-medium">{formatarMoeda(d.total)}</Td>
+                    <Td className="whitespace-nowrap text-right font-medium">
+                      {formatarMoeda(d.total)}
+                    </Td>
                   </tr>
                 ))
               )}

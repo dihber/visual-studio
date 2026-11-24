@@ -70,13 +70,16 @@ export function PaginaCadastro<T extends { id: string; ativo: boolean }>(p: Prop
 
   const consulta = useQuery({
     queryKey: [p.endpoint, { busca: buscaDeb, ativo, pagina }],
-    queryFn: () => http.get<Paginado<T>>(p.endpoint, { busca: buscaDeb, ativo, pagina, porPagina: 20 }),
+    queryFn: () =>
+      http.get<Paginado<T>>(p.endpoint, { busca: buscaDeb, ativo, pagina, porPagina: 20 }),
     placeholderData: keepPreviousData,
   });
 
   const salvar = useMutation({
     mutationFn: (dados: Valores) =>
-      editando ? http.put<T>(`${p.endpoint}/${editando.id}`, dados) : http.post<T>(p.endpoint, dados),
+      editando
+        ? http.put<T>(`${p.endpoint}/${editando.id}`, dados)
+        : http.post<T>(p.endpoint, dados),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [p.endpoint] });
       setAberto(false);
@@ -195,7 +198,12 @@ export function PaginaCadastro<T extends { id: string; ativo: boolean }>(p: Prop
                       {p.acoesExtras?.(r)}
                       {ehAdmin && (
                         <>
-                          <Button variante="fantasma" tamanho="icone" title="Editar" onClick={() => abrir(r)}>
+                          <Button
+                            variante="fantasma"
+                            tamanho="icone"
+                            title="Editar"
+                            onClick={() => abrir(r)}
+                          >
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
@@ -203,10 +211,16 @@ export function PaginaCadastro<T extends { id: string; ativo: boolean }>(p: Prop
                             tamanho="icone"
                             title={r.ativo ? 'Inativar' : 'Ativar'}
                             onClick={() => {
-                              if (!r.ativo || confirm(`Inativar este ${p.nomeItem}?`)) alternarAtivo.mutate(r);
+                              if (!r.ativo || confirm(`Inativar este ${p.nomeItem}?`))
+                                alternarAtivo.mutate(r);
                             }}
                           >
-                            <Power className={cn('h-4 w-4', r.ativo ? 'text-red-500' : 'text-emerald-600')} />
+                            <Power
+                              className={cn(
+                                'h-4 w-4',
+                                r.ativo ? 'text-red-500' : 'text-emerald-600',
+                              )}
+                            />
                           </Button>
                         </>
                       )}
@@ -218,7 +232,12 @@ export function PaginaCadastro<T extends { id: string; ativo: boolean }>(p: Prop
           </tbody>
         </Tabela>
         {consulta.data && (
-          <Paginacao pagina={pagina} porPagina={consulta.data.porPagina} total={consulta.data.total} aoMudar={setPagina} />
+          <Paginacao
+            pagina={pagina}
+            porPagina={consulta.data.porPagina}
+            total={consulta.data.total}
+            aoMudar={setPagina}
+          />
         )}
         {consulta.error && (
           <div className="p-4">
@@ -275,7 +294,12 @@ function CampoFormulario({
   erro?: string;
   aoMudar: (v: unknown) => void;
 }) {
-  const span = c.largura === 'inteira' ? 'col-span-6' : c.largura === 'terco' ? 'col-span-6 sm:col-span-2' : 'col-span-6 sm:col-span-3';
+  const span =
+    c.largura === 'inteira'
+      ? 'col-span-6'
+      : c.largura === 'terco'
+        ? 'col-span-6 sm:col-span-2'
+        : 'col-span-6 sm:col-span-3';
   if (c.tipo === 'ativo') {
     return (
       <div className="col-span-6">
@@ -286,7 +310,11 @@ function CampoFormulario({
   return (
     <Campo label={c.label} erro={erro} obrigatorio={c.obrigatorio} className={span}>
       {c.tipo === 'select' ? (
-        <Select value={String(valor ?? '')} onChange={(e) => aoMudar(e.target.value)} aria-invalid={!!erro}>
+        <Select
+          value={String(valor ?? '')}
+          onChange={(e) => aoMudar(e.target.value)}
+          aria-invalid={!!erro}
+        >
           <option value="">Selecione...</option>
           {c.opcoes?.map((o) => (
             <option key={o.valor} value={o.valor}>
@@ -305,7 +333,13 @@ function CampoFormulario({
           className={erro ? 'border-red-400' : undefined}
           onChange={(e) => {
             const v = e.target.value;
-            aoMudar(c.tipo === 'decimal' ? v.replace(/[^\d,.]/g, '') : c.tipo === 'numero' ? v.replace(/\D/g, '') : v);
+            aoMudar(
+              c.tipo === 'decimal'
+                ? v.replace(/[^\d,.]/g, '')
+                : c.tipo === 'numero'
+                  ? v.replace(/\D/g, '')
+                  : v,
+            );
           }}
         />
       )}

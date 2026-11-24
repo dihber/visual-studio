@@ -9,7 +9,8 @@ afterAll(async () => {
   await c.app.close();
 });
 
-const login = (payload: object) => c.app.inject({ method: 'POST', url: '/api/v1/auth/login', payload });
+const login = (payload: object) =>
+  c.app.inject({ method: 'POST', url: '/api/v1/auth/login', payload });
 
 describe('autenticação', () => {
   it('login válido retorna tokens e dados do usuário', async () => {
@@ -34,7 +35,9 @@ describe('autenticação', () => {
   });
 
   it('admin e supervisor não acessam o app', async () => {
-    expect((await login({ login: 'admin', senha: 'senha123', origem: 'app' })).statusCode).toBe(403);
+    expect((await login({ login: 'admin', senha: 'senha123', origem: 'app' })).statusCode).toBe(
+      403,
+    );
     expect((await login({ login: 'supa', senha: 'senha123', origem: 'app' })).statusCode).toBe(403);
   });
 
@@ -51,16 +54,34 @@ describe('autenticação', () => {
   });
 
   it('refresh rotaciona o token e logout revoga', async () => {
-    const { refreshToken } = (await login({ login: 'admin', senha: 'senha123', origem: 'web' })).json();
-    const r1 = await c.app.inject({ method: 'POST', url: '/api/v1/auth/refresh', payload: { refreshToken } });
+    const { refreshToken } = (
+      await login({ login: 'admin', senha: 'senha123', origem: 'web' })
+    ).json();
+    const r1 = await c.app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/refresh',
+      payload: { refreshToken },
+    });
     expect(r1.statusCode).toBe(200);
     const novo = r1.json().refreshToken;
     expect(novo).not.toBe(refreshToken);
     // token antigo não vale mais
-    const r2 = await c.app.inject({ method: 'POST', url: '/api/v1/auth/refresh', payload: { refreshToken } });
+    const r2 = await c.app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/refresh',
+      payload: { refreshToken },
+    });
     expect(r2.statusCode).toBe(401);
-    await c.app.inject({ method: 'POST', url: '/api/v1/auth/logout', payload: { refreshToken: novo } });
-    const r3 = await c.app.inject({ method: 'POST', url: '/api/v1/auth/refresh', payload: { refreshToken: novo } });
+    await c.app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/logout',
+      payload: { refreshToken: novo },
+    });
+    const r3 = await c.app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/refresh',
+      payload: { refreshToken: novo },
+    });
     expect(r3.statusCode).toBe(401);
   });
 
@@ -70,16 +91,32 @@ describe('autenticação', () => {
   });
 
   it('acesso negado por perfil → 403', async () => {
-    const r1 = await c.app.inject({ method: 'GET', url: '/api/v1/usuarios', headers: auth(c.tokens.vendedor1) });
+    const r1 = await c.app.inject({
+      method: 'GET',
+      url: '/api/v1/usuarios',
+      headers: auth(c.tokens.vendedor1),
+    });
     expect(r1.statusCode).toBe(403);
-    const r2 = await c.app.inject({ method: 'GET', url: '/api/v1/usuarios', headers: auth(c.tokens.supervisor) });
+    const r2 = await c.app.inject({
+      method: 'GET',
+      url: '/api/v1/usuarios',
+      headers: auth(c.tokens.supervisor),
+    });
     expect(r2.statusCode).toBe(403);
-    const r3 = await c.app.inject({ method: 'GET', url: '/api/v1/sync/dados', headers: auth(c.tokens.admin) });
+    const r3 = await c.app.inject({
+      method: 'GET',
+      url: '/api/v1/sync/dados',
+      headers: auth(c.tokens.admin),
+    });
     expect(r3.statusCode).toBe(403);
   });
 
   it('GET /auth/me', async () => {
-    const r = await c.app.inject({ method: 'GET', url: '/api/v1/auth/me', headers: auth(c.tokens.supervisor) });
+    const r = await c.app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: auth(c.tokens.supervisor),
+    });
     expect(r.json().supervisor.nome).toBe('Supervisor A');
   });
 });
@@ -93,6 +130,8 @@ describe('rate limit do login', () => {
     }
     expect(ultimo).toBe(429);
     // outro login no mesmo IP continua funcionando
-    expect((await login({ login: 'admin', senha: 'senha123', origem: 'web' })).statusCode).toBe(200);
+    expect((await login({ login: 'admin', senha: 'senha123', origem: 'web' })).statusCode).toBe(
+      200,
+    );
   });
 });

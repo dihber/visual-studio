@@ -13,7 +13,11 @@ const incluirVinculos = {
 } as const;
 
 type UsuarioComVinculos = NonNullable<
-  Awaited<ReturnType<typeof prisma.usuario.findUnique<{ where: { id: string }; include: typeof incluirVinculos }>>>
+  Awaited<
+    ReturnType<
+      typeof prisma.usuario.findUnique<{ where: { id: string }; include: typeof incluirVinculos }>
+    >
+  >
 >;
 
 function validarAcesso(u: UsuarioComVinculos, origem: 'web' | 'app') {
@@ -22,14 +26,20 @@ function validarAcesso(u: UsuarioComVinculos, origem: 'web' | 'app') {
     if (origem === 'web')
       throw new ErroHttp(403, 'Vendedores acessam o sistema apenas pelo aplicativo.');
     if (!u.vendedor)
-      throw new ErroHttp(403, 'Seu usuário não está vinculado a um vendedor. Procure o administrador.');
+      throw new ErroHttp(
+        403,
+        'Seu usuário não está vinculado a um vendedor. Procure o administrador.',
+      );
     if (!u.vendedor.ativo) throw new ErroHttp(403, 'Seu cadastro de vendedor está inativo.');
   }
   if (u.perfil === 'SUPERVISOR') {
     if (origem === 'app')
       throw new ErroHttp(403, 'O aplicativo é exclusivo para vendedores. Use o portal web.');
     if (!u.supervisor)
-      throw new ErroHttp(403, 'Seu usuário não está vinculado a um supervisor. Procure o administrador.');
+      throw new ErroHttp(
+        403,
+        'Seu usuário não está vinculado a um supervisor. Procure o administrador.',
+      );
     if (!u.supervisor.ativo) throw new ErroHttp(403, 'Seu cadastro de supervisor está inativo.');
   }
   if (u.perfil === 'ADMIN' && origem === 'app')

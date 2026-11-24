@@ -39,9 +39,30 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/vendas-equipe" element={<VendasEquipe />} />
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/produtos" element={<Produtos />} />
-              <Route path="/vendedores" element={<SomenteAdmin><Vendedores /></SomenteAdmin>} />
-              <Route path="/supervisores" element={<SomenteAdmin><Supervisores /></SomenteAdmin>} />
-              <Route path="/usuarios" element={<SomenteAdmin><Usuarios /></SomenteAdmin>} />
+              <Route
+                path="/vendedores"
+                element={
+                  <SomenteAdmin>
+                    <Vendedores />
+                  </SomenteAdmin>
+                }
+              />
+              <Route
+                path="/supervisores"
+                element={
+                  <SomenteAdmin>
+                    <Supervisores />
+                  </SomenteAdmin>
+                }
+              />
+              <Route
+                path="/usuarios"
+                element={
+                  <SomenteAdmin>
+                    <Usuarios />
+                  </SomenteAdmin>
+                }
+              />
             </Route>
             <Route path="*" element={<Navigate to="/pedidos" replace />} />
           </Routes>

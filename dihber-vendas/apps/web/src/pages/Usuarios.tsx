@@ -24,7 +24,10 @@ import { useOpcoes } from '@/hooks/useOpcoes';
 /** Valida o cadastro com o schema compartilhado + confirmação de senha. */
 const schemaCriar = z.record(z.unknown()).superRefine((u, ctx) => {
   const r = usuarioCriarSchema.safeParse(u);
-  if (!r.success) r.error.issues.forEach((i) => ctx.addIssue({ code: 'custom', path: i.path, message: i.message }));
+  if (!r.success)
+    r.error.issues.forEach((i) =>
+      ctx.addIssue({ code: 'custom', path: i.path, message: i.message }),
+    );
   // vínculo validado já de início (o superRefine do schema só roda quando o resto está válido)
   if (u.perfil === 'VENDEDOR' && !u.vendedorId)
     ctx.addIssue({ code: 'custom', path: ['vendedorId'], message: 'Selecione o vendedor' });
@@ -52,11 +55,18 @@ export function Usuarios() {
         colunas={[
           { titulo: 'Nome', render: (u) => <span className="font-medium">{u.nome}</span> },
           { titulo: 'Login', render: (u) => <span className="font-mono">{u.login}</span> },
-          { titulo: 'Perfil', render: (u) => <Badge cor={corPerfil[u.perfil]}>{PERFIL_LABEL[u.perfil]}</Badge> },
+          {
+            titulo: 'Perfil',
+            render: (u) => <Badge cor={corPerfil[u.perfil]}>{PERFIL_LABEL[u.perfil]}</Badge>,
+          },
           {
             titulo: 'Vínculo',
             render: (u) =>
-              u.vendedor ? `Vendedor: ${u.vendedor.codigo} - ${u.vendedor.nome}` : u.supervisor ? `Supervisor: ${u.supervisor.nome}` : '-',
+              u.vendedor
+                ? `Vendedor: ${u.vendedor.codigo} - ${u.vendedor.nome}`
+                : u.supervisor
+                  ? `Supervisor: ${u.supervisor.nome}`
+                  : '-',
           },
         ]}
         campos={[
@@ -88,27 +98,57 @@ export function Usuarios() {
             opcoes: supervisores.todasOpcoes,
             visivel: (v) => v.perfil === 'SUPERVISOR',
           },
-          { nome: 'senha', label: 'Senha', tipo: 'senha', obrigatorio: true, largura: 'metade', visivel: (_v, ed) => !ed },
-          { nome: 'confirmarSenha', label: 'Confirmar senha', tipo: 'senha', obrigatorio: true, largura: 'metade', visivel: (_v, ed) => !ed },
+          {
+            nome: 'senha',
+            label: 'Senha',
+            tipo: 'senha',
+            obrigatorio: true,
+            largura: 'metade',
+            visivel: (_v, ed) => !ed,
+          },
+          {
+            nome: 'confirmarSenha',
+            label: 'Confirmar senha',
+            tipo: 'senha',
+            obrigatorio: true,
+            largura: 'metade',
+            visivel: (_v, ed) => !ed,
+          },
           { nome: 'ativo', label: 'Ativo', tipo: 'ativo' },
         ]}
         schemaCriar={schemaCriar}
         schemaEditar={usuarioAtualizarSchema}
         valoresIniciais={{ ativo: true, perfil: 'VENDEDOR' }}
-        paraFormulario={(u) => ({ ...u, vendedorId: u.vendedorId ?? '', supervisorId: u.supervisorId ?? '' })}
+        paraFormulario={(u) => ({
+          ...u,
+          vendedorId: u.vendedorId ?? '',
+          supervisorId: u.supervisorId ?? '',
+        })}
         acoesExtras={(u) => (
           <>
-            <Button variante="fantasma" tamanho="icone" title="Celulares usados" onClick={() => setDispositivosDe(u)}>
+            <Button
+              variante="fantasma"
+              tamanho="icone"
+              title="Celulares usados"
+              onClick={() => setDispositivosDe(u)}
+            >
               <Smartphone className="h-4 w-4" />
             </Button>
-            <Button variante="fantasma" tamanho="icone" title="Redefinir senha" onClick={() => setSenhaDe(u)}>
+            <Button
+              variante="fantasma"
+              tamanho="icone"
+              title="Redefinir senha"
+              onClick={() => setSenhaDe(u)}
+            >
               <KeyRound className="h-4 w-4" />
             </Button>
           </>
         )}
       />
       {senhaDe && <DialogSenha usuario={senhaDe} aoFechar={() => setSenhaDe(null)} />}
-      {dispositivosDe && <DialogDispositivos usuario={dispositivosDe} aoFechar={() => setDispositivosDe(null)} />}
+      {dispositivosDe && (
+        <DialogDispositivos usuario={dispositivosDe} aoFechar={() => setDispositivosDe(null)} />
+      )}
     </>
   );
 }
@@ -140,18 +180,37 @@ function DialogSenha({ usuario, aoFechar }: { usuario: Usuario; aoFechar: () => 
           <Button onClick={aoFechar}>Fechar</Button>
         ) : (
           <>
-            <Button variante="secundario" onClick={aoFechar}>Cancelar</Button>
-            <Button onClick={salvar} carregando={m.isPending}>Redefinir</Button>
+            <Button variante="secundario" onClick={aoFechar}>
+              Cancelar
+            </Button>
+            <Button onClick={salvar} carregando={m.isPending}>
+              Redefinir
+            </Button>
           </>
         )
       }
     >
       {ok ? (
-        <p className="text-sm text-emerald-700">Senha redefinida. As sessões abertas deste usuário foram encerradas.</p>
+        <p className="text-sm text-emerald-700">
+          Senha redefinida. As sessões abertas deste usuário foram encerradas.
+        </p>
       ) : (
         <div className="space-y-3">
-          <Campo label="Nova senha"><Input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoFocus /></Campo>
-          <Campo label="Confirmar nova senha"><Input type="password" value={confirmar} onChange={(e) => setConfirmar(e.target.value)} /></Campo>
+          <Campo label="Nova senha">
+            <Input
+              type="password"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              autoFocus
+            />
+          </Campo>
+          <Campo label="Confirmar nova senha">
+            <Input
+              type="password"
+              value={confirmar}
+              onChange={(e) => setConfirmar(e.target.value)}
+            />
+          </Campo>
           <Alerta>{erro}</Alerta>
         </div>
       )}
@@ -160,7 +219,10 @@ function DialogSenha({ usuario, aoFechar }: { usuario: Usuario; aoFechar: () => 
 }
 
 function DialogDispositivos({ usuario, aoFechar }: { usuario: Usuario; aoFechar: () => void }) {
-  const q = useQuery({ queryKey: ['/usuarios', usuario.id], queryFn: () => http.get<Usuario>(`/usuarios/${usuario.id}`) });
+  const q = useQuery({
+    queryKey: ['/usuarios', usuario.id],
+    queryFn: () => http.get<Usuario>(`/usuarios/${usuario.id}`),
+  });
   const lista = q.data?.dispositivos ?? [];
   return (
     <Dialog aberto aoFechar={aoFechar} titulo={`Celulares de ${usuario.nome}`} largura="max-w-3xl">

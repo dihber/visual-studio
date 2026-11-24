@@ -10,9 +10,20 @@ const cores = {
   azul: 'bg-blue-50 text-blue-700 ring-blue-200',
 } as const;
 
-export function Badge({ cor = 'cinza', children }: { cor?: keyof typeof cores; children: ReactNode }) {
+export function Badge({
+  cor = 'cinza',
+  children,
+}: {
+  cor?: keyof typeof cores;
+  children: ReactNode;
+}) {
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset', cores[cor])}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
+        cores[cor],
+      )}
+    >
       {children}
     </span>
   );

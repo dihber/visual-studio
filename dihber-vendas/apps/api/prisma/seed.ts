@@ -57,7 +57,12 @@ async function main() {
   const supervisor = await prisma.supervisor.upsert({
     where: { codigo: 'S01' },
     update: {},
-    create: { codigo: 'S01', nome: 'Carlos Supervisor', email: 'carlos@exemplo.com.br', telefone: '(11) 98888-0001' },
+    create: {
+      codigo: 'S01',
+      nome: 'Carlos Supervisor',
+      email: 'carlos@exemplo.com.br',
+      telefone: '(11) 98888-0001',
+    },
   });
 
   const vendedores = await Promise.all(
@@ -76,7 +81,12 @@ async function main() {
   await prisma.usuario.upsert({
     where: { login: 'admin' },
     update: {},
-    create: { nome: 'Administrador', login: 'admin', perfil: 'ADMIN', senhaHash: await hash('admin123') },
+    create: {
+      nome: 'Administrador',
+      login: 'admin',
+      perfil: 'ADMIN',
+      senhaHash: await hash('admin123'),
+    },
   });
   await prisma.usuario.upsert({
     where: { login: 'supervisor' },
@@ -137,7 +147,9 @@ async function main() {
     });
   }
 
-  console.log('Seed concluído. Usuários: admin/admin123 · supervisor/super123 · vendedor1/vend123 · vendedor2/vend123');
+  console.log(
+    'Seed concluído. Usuários: admin/admin123 · supervisor/super123 · vendedor1/vend123 · vendedor2/vend123',
+  );
 }
 
 main()

@@ -14,7 +14,10 @@ export function Tabela({ children }: { children: ReactNode }) {
 export function Th({ className, ...p }: ThHTMLAttributes<HTMLTableCellElement>) {
   return (
     <th
-      className={cn('border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap', className)}
+      className={cn(
+        'border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap',
+        className,
+      )}
       {...p}
     />
   );
@@ -24,7 +27,15 @@ export function Td({ className, ...p }: TdHTMLAttributes<HTMLTableCellElement>) 
   return <td className={cn('border-b border-slate-100 px-4 py-2.5', className)} {...p} />;
 }
 
-export function LinhaVazia({ colunas, carregando, mensagem = 'Nenhum registro encontrado' }: { colunas: number; carregando?: boolean; mensagem?: string }) {
+export function LinhaVazia({
+  colunas,
+  carregando,
+  mensagem = 'Nenhum registro encontrado',
+}: {
+  colunas: number;
+  carregando?: boolean;
+  mensagem?: string;
+}) {
   return (
     <tr>
       <td colSpan={colunas} className="px-4 py-10 text-center text-slate-500">
@@ -54,13 +65,25 @@ export function Paginacao({
         {de}–{ate} de {total.toLocaleString('pt-BR')}
       </span>
       <div className="flex items-center gap-1">
-        <Button variante="secundario" tamanho="icone" disabled={pagina <= 1} onClick={() => aoMudar(pagina - 1)} aria-label="Página anterior">
+        <Button
+          variante="secundario"
+          tamanho="icone"
+          disabled={pagina <= 1}
+          onClick={() => aoMudar(pagina - 1)}
+          aria-label="Página anterior"
+        >
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <span className="px-2">
           {pagina} / {paginas}
         </span>
-        <Button variante="secundario" tamanho="icone" disabled={pagina >= paginas} onClick={() => aoMudar(pagina + 1)} aria-label="Próxima página">
+        <Button
+          variante="secundario"
+          tamanho="icone"
+          disabled={pagina >= paginas}
+          onClick={() => aoMudar(pagina + 1)}
+          aria-label="Próxima página"
+        >
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>

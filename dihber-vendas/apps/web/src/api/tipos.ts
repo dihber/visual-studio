@@ -82,7 +82,12 @@ export interface PedidoLista {
   criadoNoAppEm: string;
   recebidoEm: string;
   cliente: { id: string; codigo: string; razaoSocial: string; nomeFantasia: string | null };
-  vendedor: { id: string; codigo: string; nome: string; supervisor: { id: string; nome: string } | null };
+  vendedor: {
+    id: string;
+    codigo: string;
+    nome: string;
+    supervisor: { id: string; nome: string } | null;
+  };
   dispositivo: { id: string; modelo: string | null; sistema: string | null };
   _count: { itens: number };
 }
@@ -101,7 +106,13 @@ export interface PedidoDetalhe extends Omit<PedidoLista, '_count' | 'cliente' | 
     qtdUnidades: number;
     precoUnitario: number;
     valorTotal: number;
-    produto: { id: string; codigo: string; descricao: string; embalagem: string; qtdPorCaixa: number };
+    produto: {
+      id: string;
+      codigo: string;
+      descricao: string;
+      embalagem: string;
+      qtdPorCaixa: number;
+    };
   }[];
 }
 

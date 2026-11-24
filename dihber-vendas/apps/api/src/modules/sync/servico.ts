@@ -29,14 +29,18 @@ export async function receberPedidos(
         ? (bruto as { id: string }).id
         : null;
     if (!parse.success) {
-      resposta.rejeitados.push({ id: idBruto, erro: parse.error.issues[0]?.message ?? 'Pedido inválido' });
+      resposta.rejeitados.push({
+        id: idBruto,
+        erro: parse.error.issues[0]?.message ?? 'Pedido inválido',
+      });
       continue;
     }
     const p = parse.data;
     try {
       const existente = await prisma.pedido.findUnique({ where: { id: p.id } });
       if (existente) {
-        if (existente.vendedorId !== vendedorId) throw new ErroPedido('Identificador de pedido já utilizado');
+        if (existente.vendedorId !== vendedorId)
+          throw new ErroPedido('Identificador de pedido já utilizado');
         resposta.aceitos.push({ id: p.id, numero: existente.numero });
         continue;
       }
@@ -52,7 +56,8 @@ export async function receberPedidos(
       const itens = p.itens.map((i) => {
         const prod = porId.get(i.produtoId);
         if (!prod) throw new ErroPedido('Produto não encontrado');
-        if (!prod.ativo) throw new ErroPedido(`Produto inativo: ${prod.codigo} - ${prod.descricao}`);
+        if (!prod.ativo)
+          throw new ErroPedido(`Produto inativo: ${prod.codigo} - ${prod.descricao}`);
         const preco = prod.precoUnitario.toNumber();
         const calc = calcularItem({
           tipoEmbalagem: i.tipoEmbalagem,
@@ -127,33 +132,29 @@ export async function montarDados(vendedorId: string, desde?: string): Promise<S
 
   return {
     servidorAgora: servidorAgora.toISOString(),
-    clientes: clientes.map(
-      (c): ClienteSync => ({
-        id: c.id,
-        codigo: c.codigo,
-        razaoSocial: c.razaoSocial,
-        nomeFantasia: c.nomeFantasia,
-        cpfCnpj: c.cpfCnpj,
-        telefone: c.telefone,
-        cidade: c.cidade,
-        uf: c.uf,
-        ativo: c.ativo,
-        updatedAt: c.updatedAt.toISOString(),
-      }),
-    ),
-    produtos: produtos.map(
-      (x): ProdutoSync => ({
-        id: x.id,
-        codigo: x.codigo,
-        descricao: x.descricao,
-        embalagem: x.embalagem,
-        qtdPorCaixa: x.qtdPorCaixa,
-        precoUnitario: x.precoUnitario.toNumber(),
-        estoque: x.estoque?.toNumber() ?? null,
-        ativo: x.ativo,
-        updatedAt: x.updatedAt.toISOString(),
-      }),
-    ),
+    clientes: clientes.map((c): ClienteSync => ({
+      id: c.id,
+      codigo: c.codigo,
+      razaoSocial: c.razaoSocial,
+      nomeFantasia: c.nomeFantasia,
+      cpfCnpj: c.cpfCnpj,
+      telefone: c.telefone,
+      cidade: c.cidade,
+      uf: c.uf,
+      ativo: c.ativo,
+      updatedAt: c.updatedAt.toISOString(),
+    })),
+    produtos: produtos.map((x): ProdutoSync => ({
+      id: x.id,
+      codigo: x.codigo,
+      descricao: x.descricao,
+      embalagem: x.embalagem,
+      qtdPorCaixa: x.qtdPorCaixa,
+      precoUnitario: x.precoUnitario.toNumber(),
+      estoque: x.estoque?.toNumber() ?? null,
+      ativo: x.ativo,
+      updatedAt: x.updatedAt.toISOString(),
+    })),
     statusPedidos: pedidos,
   };
 }

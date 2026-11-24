@@ -21,8 +21,15 @@ export function Supervisores() {
         colunas={[
           { titulo: 'Código', render: (s) => <span className="font-mono">{s.codigo}</span> },
           { titulo: 'Nome', render: (s) => <span className="font-medium">{s.nome}</span> },
-          { titulo: 'Contato', render: (s) => [s.telefone, s.email].filter(Boolean).join(' · ') || '-' },
-          { titulo: 'Vendedores', render: (s) => s._count?.vendedores ?? 0, className: 'text-right' },
+          {
+            titulo: 'Contato',
+            render: (s) => [s.telefone, s.email].filter(Boolean).join(' · ') || '-',
+          },
+          {
+            titulo: 'Vendedores',
+            render: (s) => s._count?.vendedores ?? 0,
+            className: 'text-right',
+          },
         ]}
         campos={[
           { nome: 'codigo', label: 'Código', obrigatorio: true, largura: 'terco', maxLength: 30 },
@@ -35,7 +42,12 @@ export function Supervisores() {
         valoresIniciais={{ ativo: true }}
         paraFormulario={(s) => ({ ...s })}
         acoesExtras={(s) => (
-          <Button variante="fantasma" tamanho="icone" title="Ver equipe" onClick={() => setEquipeDe(s)}>
+          <Button
+            variante="fantasma"
+            tamanho="icone"
+            title="Ver equipe"
+            onClick={() => setEquipeDe(s)}
+          >
             <Users className="h-4 w-4" />
           </Button>
         )}
@@ -69,7 +81,9 @@ function DialogEquipe({ supervisor, aoFechar }: { supervisor: Supervisor; aoFech
           ))}
         </ul>
       )}
-      {q.data?.usuario && <p className="mt-3 text-xs text-slate-500">Usuário de acesso: {q.data.usuario.login}</p>}
+      {q.data?.usuario && (
+        <p className="mt-3 text-xs text-slate-500">Usuário de acesso: {q.data.usuario.login}</p>
+      )}
     </Dialog>
   );
 }
