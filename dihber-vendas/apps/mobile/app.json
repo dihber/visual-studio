@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "dihbervendas",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "br.com.dihber.vendas",
@@ -18,16 +17,22 @@
       "package": "br.com.dihber.vendas",
       "adaptiveIcon": {
         "backgroundColor": "#2563EB"
-      },
-      "edgeToEdgeEnabled": true
+      }
     },
-    "plugins": ["expo-router", "expo-sqlite", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-secure-store"
+    ],
     "experiments": {
       "typedRoutes": false
     },
     "extra": {
       "apiUrl": "http://192.168.0.10:3333/api/v1"
     },
-    "platforms": ["ios", "android"]
+    "platforms": [
+      "ios",
+      "android"
+    ]
   }
 }
