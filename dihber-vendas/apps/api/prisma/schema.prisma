@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Perfil {
+  ADMIN
+  SUPERVISOR
+  VENDEDOR
+}
+
+enum StatusPedido {
+  PENDENTE
+  APROVADO
+  REPROVADO
+  CANCELADO
+}
+
+enum TipoEmbalagem {
+  CX
+  UN
+}
+
+model Usuario {
+  id                String        @id @default(uuid())
+  nome              String
+  login             String        @unique
+  senhaHash         String
+  perfil            Perfil
+  ativo             Boolean       @default(true)
+  vendedorId        String?       @unique
+  vendedor          Vendedor?     @relation(fields: [vendedorId], references: [id])
+  supervisorId      String?       @unique
+  supervisor        Supervisor?   @relation(fields: [supervisorId], references: [id])
+  dispositivos      Dispositivo[]
+  sessoes           Sessao[]
+  pedidosAvaliados  Pedido[]      @relation("PedidoAvaliador")
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+/// Sessões de refresh token (permite logout/revogação).
+model Sessao {
+  id          String    @id @default(uuid())
+  usuarioId   String
+  usuario     Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  expiraEm    DateTime
+  revogadaEm  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([usuarioId])
+}
+
+model Supervisor {
+  id         String     @id @default(uuid())
+  codigo     String     @unique
+  nome       String
+  email      String?
+  telefone   String?
+  ativo      Boolean    @default(true)
+  vendedores Vendedor[]
+  usuario    Usuario?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model Vendedor {
+  id           String      @id @default(uuid())
+  codigo       String      @unique
+  nome         String
+  email        String?
+  telefone     String?
+  ativo        Boolean     @default(true)
+  supervisorId String?
+  supervisor   Supervisor? @relation(fields: [supervisorId], references: [id])
+  usuario      Usuario?
+  pedidos      Pedido[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([supervisorId])
+}
+
+model Cliente {
+  id           String   @id @default(uuid())
+  codigo       String   @unique
+  razaoSocial  String
+  nomeFantasia String?
+  cpfCnpj      String   @unique
+  telefone     String?
+  email        String?
+  endereco     String?
+  cidade       String?
+  uf           String?  @db.Char(2)
+  ativo        Boolean  @default(true)
+  pedidos      Pedido[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
+model Produto {
+  id            String       @id @default(uuid())
+  codigo        String       @unique
+  descricao     String
+  embalagem     String
+  qtdPorCaixa   Int
+  precoUnitario Decimal      @db.Decimal(12, 2)
+  estoque       Decimal?     @db.Decimal(12, 3)
+  ativo         Boolean      @default(true)
+  itens         PedidoItem[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([updatedAt])
+}
+
+model Dispositivo {
+  id         String    @id @default(uuid())
+  deviceId   String    @unique
+  modelo     String?
+  sistema    String?
+  appVersao  String?
+  usuarioId  String
+  usuario    Usuario   @relation(fields: [usuarioId], references: [id])
+  ultimoSync DateTime?
+  pedidos    Pedido[]
+  createdAt  DateTime  @default(now())
+
+  @@index([usuarioId])
+}
+
+model Pedido {
+  id               String       @id // UUID gerado NO APP (idempotência)
+  numero           Int          @unique @default(autoincrement())
+  vendedorId       String
+  vendedor         Vendedor     @relation(fields: [vendedorId], references: [id])
+  clienteId        String
+  cliente          Cliente      @relation(fields: [clienteId], references: [id])
+  dispositivoId    String
+  dispositivo      Dispositivo  @relation(fields: [dispositivoId], references: [id])
+  status           StatusPedido @default(PENDENTE)
+  observacao       String?
+  valorTotal       Decimal      @db.Decimal(12, 2)
+  criadoNoAppEm    DateTime
+  recebidoEm       DateTime     @default(now())
+  avaliadoPorId    String?
+  avaliadoPor      Usuario?     @relation("PedidoAvaliador", fields: [avaliadoPorId], references: [id])
+  avaliadoEm       DateTime?
+  motivoReprovacao String?
+  itens            PedidoItem[]
+  updatedAt        DateTime     @updatedAt
+
+  @@index([vendedorId, updatedAt])
+  @@index([status])
+  @@index([recebidoEm])
+}
+
+model PedidoItem {
+  id            String        @id @default(uuid())
+  pedidoId      String
+  pedido        Pedido        @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  produtoId     String
+  produto       Produto       @relation(fields: [produtoId], references: [id])
+  tipoEmbalagem TipoEmbalagem
+  quantidade    Decimal       @db.Decimal(12, 3)
+  qtdUnidades   Decimal       @db.Decimal(12, 3)
+  precoUnitario Decimal       @db.Decimal(12, 2)
+  valorTotal    Decimal       @db.Decimal(12, 2)
+
+  @@index([pedidoId])
+}
