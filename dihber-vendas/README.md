@@ -24,8 +24,8 @@ pnpm dev                                   # API em :3333 e Web em http://localh
 
 Usuários do seed:
 
-| Login        | Senha     | Perfil                          |
-| ------------ | --------- | ------------------------------- |
+| Login        | Senha      | Perfil                         |
+| ------------ | ---------- | ------------------------------ |
 | `admin`      | `admin123` | Administrador (web)            |
 | `supervisor` | `super123` | Supervisor da equipe S01 (web) |
 | `vendedor1`  | `vend123`  | Vendedor 07 – João (app)       |
@@ -39,6 +39,22 @@ pnpm --filter mobile start                     # abra no Expo Go ou em um develo
 ```
 
 O celular precisa alcançar a API pelo IP da rede (ex.: `http://192.168.0.10:3333/api/v1`), não por `localhost`.
+
+### APK de teste (Android, API local via HTTP)
+
+O perfil `teste` do `apps/mobile/eas.json` gera um APK que aceita `http://` (apps Android de verdade bloqueiam HTTP por padrão). Ele se chama **DihberVendas (teste)** e usa o pacote `br.com.dihber.vendas.teste`, então pode ficar instalado junto com o app oficial. Builds de produção continuam aceitando só HTTPS.
+
+1. Em `apps/mobile/eas.json`, perfil `teste`, troque `192.168.0.10` pelo IP do seu computador.
+2. Gere o APK (precisa de conta gratuita em expo.dev):
+   ```bash
+   cd apps/mobile && npx eas-cli login
+   ```
+   ```bash
+   pnpm --filter mobile build:teste
+   ```
+3. Baixe o `.apk` pelo link que a Expo mostra e instale no celular (permita "instalar de fontes desconhecidas").
+
+O endereço da API fica gravado no APK: se o IP do computador mudar, gere o APK de novo (ou fixe o IP no roteador).
 
 ### Testes
 
@@ -67,15 +83,15 @@ Use `TEST_DATABASE_URL` para apontar para outro servidor.
 
 ## Decisões tomadas (seção 14 da especificação)
 
-| Ponto                | Decisão adotada (fácil de mudar)                                                                                                   |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Preço                | Pedido **com valores (R$)**; preço da UN vem do cadastro e o servidor recalcula.                                                   |
-| Carteira de clientes | Todo vendedor vê **todos** os clientes ativos.                                                                                     |
-| Estoque              | **Informativo** (exibido no app, não bloqueia o pedido).                                                                           |
-| Supervisor no app    | **Só web**. O app é exclusivo para vendedores (admin/supervisor recebem mensagem clara).                                           |
-| Troca de vendedor no mesmo celular | Permitida; os dados locais são trocados, **exceto** se houver pedidos não enviados do anterior (bloqueia com mensagem). |
-| Período nos filtros  | Usa a data do pedido no app (`criadoNoAppEm`), em horário de Brasília. "Total vendido" soma pendentes + aprovados.                  |
-| Integração ERP, hospedagem, contas Apple/Google | Pendentes — dependem de você.                                                                          |
+| Ponto                                           | Decisão adotada (fácil de mudar)                                                                                        |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Preço                                           | Pedido **com valores (R$)**; preço da UN vem do cadastro e o servidor recalcula.                                        |
+| Carteira de clientes                            | Todo vendedor vê **todos** os clientes ativos.                                                                          |
+| Estoque                                         | **Informativo** (exibido no app, não bloqueia o pedido).                                                                |
+| Supervisor no app                               | **Só web**. O app é exclusivo para vendedores (admin/supervisor recebem mensagem clara).                                |
+| Troca de vendedor no mesmo celular              | Permitida; os dados locais são trocados, **exceto** se houver pedidos não enviados do anterior (bloqueia com mensagem). |
+| Período nos filtros                             | Usa a data do pedido no app (`criadoNoAppEm`), em horário de Brasília. "Total vendido" soma pendentes + aprovados.      |
+| Integração ERP, hospedagem, contas Apple/Google | Pendentes — dependem de você.                                                                                           |
 
 ## Publicação (Fase 11)
 
