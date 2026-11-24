@@ -36,3 +36,14 @@ describe('CPF/CNPJ', () => {
     expect(validarCnpj('11.222.333/0001-82')).toBe(false);
   });
 });
+
+import { produtoSchema } from './index';
+describe('mensagens em português', () => {
+  it('campos obrigatórios e números', () => {
+    const r = produtoSchema.safeParse({ codigo: 'X' });
+    expect(r.success).toBe(false);
+    const msgs = r.error!.issues.map((i) => i.message);
+    expect(msgs).toContain('Campo obrigatório');
+    expect(msgs.join()).not.toMatch(/Required|Expected/);
+  });
+});

@@ -4,6 +4,9 @@ import { validarCpfCnpj } from '../cpf-cnpj';
 import { somenteDigitos } from '../formatacao';
 import { emailOpcional, textoOpcional } from './comum';
 
+/** '' → ausente (Campo obrigatório); texto não numérico → NaN (Informe um número válido). */
+const numero = (v: unknown) => (v === '' || v === null || v === undefined ? undefined : Number(v));
+
 const codigo = z.string().trim().min(1, 'Informe o código').max(30);
 const nome = z.string().trim().min(2, 'Informe o nome').max(150);
 
@@ -51,12 +54,9 @@ export const produtoSchema = z.object({
   codigo,
   descricao: z.string().trim().min(2, 'Informe a descrição').max(200),
   embalagem: z.string().trim().min(1, 'Informe a embalagem').max(60),
-  qtdPorCaixa: z.coerce.number().int('Deve ser inteiro').min(1, 'Mínimo 1'),
-  precoUnitario: z.coerce.number().min(0, 'Preço inválido').max(9999999999),
-  estoque: z.preprocess(
-    (v) => (v === '' || v === null || v === undefined ? null : v),
-    z.coerce.number().nullable(),
-  ),
+  qtdPorCaixa: z.preprocess(numero, z.number().int('Deve ser inteiro').min(1, 'Mínimo 1')),
+  precoUnitario: z.preprocess(numero, z.number().min(0, 'Preço inválido').max(9999999999)),
+  estoque: z.preprocess((v) => numero(v) ?? null, z.number().nullable()),
   ativo: z.boolean().default(true),
 });
 export type ProdutoInput = z.infer<typeof produtoSchema>;

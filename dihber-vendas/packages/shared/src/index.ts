@@ -1,3 +1,5 @@
+import './zod-ptbr';
+export * from './zod-ptbr';
 export * from './enums';
 export * from './calculo-pedido';
 export * from './formatacao';
