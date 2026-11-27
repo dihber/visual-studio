@@ -10,9 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "export": "expo export --platform android",
-    "build:teste": "eas build --platform android --profile teste",
-    "build:android": "eas build --platform android --profile preview",
-    "build:ios": "eas build --platform ios --profile production"
+    "build:teste": "npx eas-cli@latest build --platform android --profile teste",
+    "build:android": "npx eas-cli@latest build --platform android --profile preview",
+    "build:ios": "npx eas-cli@latest build --platform ios --profile production"
   },
   "dependencies": {
     "@dihber/shared": "workspace:*",
