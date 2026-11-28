@@ -132,3 +132,17 @@ export interface VendaVendedor {
   pedidos: number;
   total: number;
 }
+
+export type StatusBuildApp = 'NA_FILA' | 'GERANDO' | 'CONCLUIDO' | 'FALHOU';
+
+export interface AppBuild {
+  id: string;
+  status: StatusBuildApp;
+  solicitadoEm: string;
+  concluidoEm: string | null;
+  versao: string | null;
+  urlDownload: string | null;
+  githubRunUrl: string | null;
+  erro: string | null;
+  solicitadoPor: { id: string; nome: string };
+}

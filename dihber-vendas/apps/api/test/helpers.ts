@@ -8,7 +8,7 @@ export { prisma };
 
 export async function limparBanco() {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "PedidoItem","Pedido","Dispositivo","Sessao","Usuario","Vendedor","Supervisor","Cliente","Produto" RESTART IDENTITY CASCADE',
+    'TRUNCATE "AppBuild","PedidoItem","Pedido","Dispositivo","Sessao","Usuario","Vendedor","Supervisor","Cliente","Produto" RESTART IDENTITY CASCADE',
   );
 }
 

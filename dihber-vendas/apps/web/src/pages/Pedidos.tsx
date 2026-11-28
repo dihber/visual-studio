@@ -20,6 +20,7 @@ import { BadgeStatus } from '@/components/ui/badge';
 import { LinhaVazia, Paginacao, Tabela, Td, Th } from '@/components/ui/table';
 import { Alerta } from '@/components/ui/alerta';
 import { FiltroPeriodo } from '@/components/FiltroPeriodo';
+import { BotaoAppAndroid } from '@/components/AppAndroid';
 import { hojeISO } from '@/lib/utils';
 
 export function Pedidos() {
@@ -85,9 +86,12 @@ export function Pedidos() {
             <p className="text-sm text-slate-500">Pedidos da sua equipe</p>
           )}
         </div>
-        <Button variante="secundario" onClick={exportar} carregando={exportando}>
-          <Download className="h-4 w-4" /> Exportar CSV
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <BotaoAppAndroid />
+          <Button variante="secundario" onClick={exportar} carregando={exportando}>
+            <Download className="h-4 w-4" /> Exportar CSV
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
