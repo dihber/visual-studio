@@ -10,6 +10,7 @@ import { rotasCadastros } from './modules/cadastros/rotas';
 import { rotasPedidos } from './modules/pedidos/rotas';
 import { rotasSync } from './modules/sync/rotas';
 import { rotasAppBuilds } from './modules/app-builds/rotas';
+import { rotasComissoes } from './modules/comissoes/rotas';
 
 export async function criarApp(opcoes: FastifyServerOptions = {}) {
   const app = Fastify({ trustProxy: true, ...opcoes });
@@ -35,6 +36,7 @@ export async function criarApp(opcoes: FastifyServerOptions = {}) {
       await api.register(rotasPedidos);
       await api.register(rotasSync);
       await api.register(rotasAppBuilds);
+      await api.register(rotasComissoes);
     },
     { prefix: '/api/v1' },
   );

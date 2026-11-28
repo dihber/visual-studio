@@ -12,6 +12,7 @@ import {
 import { prisma } from '../../lib/prisma';
 import { ErroHttp, naoEncontrado } from '../../lib/erros';
 import { filtroVisibilidadePedidos } from '../../lib/visibilidade';
+import { marcarProdutosAlterados, produtosDoPedido } from '../../lib/estoque';
 import { paginar } from '../../lib/paginacao';
 import { hojeBrasilia, inicioDoDiaBrasilia, montarFiltroPedidos } from './filtros';
 
@@ -67,7 +68,7 @@ export async function rotasPedidos(app: FastifyInstance) {
       prisma.pedido.count({ where: { AND: [base, { status: 'APROVADO' }] } }),
       prisma.pedido.count({ where: { AND: [base, { status: 'REPROVADO' }] } }),
       prisma.pedido.aggregate({
-        where: { AND: [base, { status: { in: ['PENDENTE', 'APROVADO'] } }] },
+        where: { AND: [base, { status: { in: ['PENDENTE', 'APROVADO', 'FATURADO'] } }] },
         _sum: { valorTotal: true },
       }),
     ]);
@@ -89,7 +90,11 @@ export async function rotasPedidos(app: FastifyInstance) {
       const where = {
         AND: [
           montarFiltroPedidos(req.usuario, { ...q, status: undefined }),
-          { status: { in: ['PENDENTE', 'APROVADO'] as ('PENDENTE' | 'APROVADO')[] } },
+          {
+            status: {
+              in: ['PENDENTE', 'APROVADO', 'FATURADO'] as ('PENDENTE' | 'APROVADO' | 'FATURADO')[],
+            },
+          },
         ],
       };
       const grupos = await prisma.pedido.groupBy({
@@ -199,6 +204,7 @@ export async function rotasPedidos(app: FastifyInstance) {
         canceladoPor: { select: { id: true, nome: true } },
         itens: {
           include: {
+            comissao: { select: { percentual: true, valorComissao: true } },
             produto: {
               select: {
                 id: true,
@@ -231,6 +237,8 @@ export async function rotasPedidos(app: FastifyInstance) {
       data: { ...dados, avaliadoPorId: usuario.id, avaliadoEm: new Date() },
     });
     if (r.count === 0) throw new ErroHttp(409, 'Somente pedidos pendentes podem ser avaliados');
+    // reprovado libera a reserva de estoque
+    if (dados.status === 'REPROVADO') await marcarProdutosAlterados(await produtosDoPedido(id));
     return prisma.pedido.findUnique({ where: { id }, include: includeLista });
   };
 
@@ -286,6 +294,8 @@ export async function rotasPedidos(app: FastifyInstance) {
       });
       if (r.count === 0)
         throw new ErroHttp(409, 'Somente pedidos pendentes ou aprovados podem ser cancelados');
+      // cancelado libera a reserva de estoque
+      await marcarProdutosAlterados(await produtosDoPedido(id));
       return prisma.pedido.findUnique({ where: { id }, include: includeLista });
     },
   );

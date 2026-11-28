@@ -109,3 +109,30 @@ export function pagamentoValido(
   const prazo = prazos.find((p) => p.id === escolhido.prazoId);
   return prazo ? { ...escolhido, prazoDescricao: prazo.descricao } : null;
 }
+
+// ---------- estoque ----------
+/** Quantidade total em UN de um produto no rascunho (somando CX e UN). */
+export function unidadesNoRascunho(itens: ItemRascunho[], produtoId: string): number {
+  const mil = itens
+    .filter((i) => i.produto.id === produtoId)
+    .reduce(
+      (t, i) =>
+        t +
+        Math.round(i.quantidade * 1000) * (i.tipoEmbalagem === 'CX' ? i.produto.qtdPorCaixa : 1),
+      0,
+    );
+  return mil / 1000;
+}
+
+/** Mensagem de bloqueio quando o rascunho passa do saldo (null = está dentro do saldo). */
+export function erroEstoque(
+  itens: ItemRascunho[],
+  produto: { id: string; codigo: string; descricao: string },
+  saldo: number | null,
+): string | null {
+  if (saldo === null) return null;
+  const pedido = unidadesNoRascunho(itens, produto.id);
+  if (pedido <= saldo + 1e-9) return null;
+  const fmt = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+  return `Estoque insuficiente para ${produto.codigo} - ${produto.descricao}: disponível ${fmt(Math.max(0, saldo))} UN, no pedido ${fmt(pedido)} UN.`;
+}

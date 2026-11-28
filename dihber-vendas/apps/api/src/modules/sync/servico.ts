@@ -1,5 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import {
+  calcularComissao,
   calcularItem,
+  competenciaBrasilia,
+  formatarQuantidade,
   calcularTotalPedido,
   pedidoSyncSchema,
   type ClienteSync,
@@ -9,6 +13,7 @@ import {
   type TabelaPrecoSync,
 } from '@dihber/shared';
 import { Prisma, prisma } from '../../lib/prisma';
+import { disponivel, marcarProdutosAlterados, reservadoPorProduto } from '../../lib/estoque';
 
 class ErroPedido extends Error {}
 
@@ -95,6 +100,7 @@ export async function receberPedidos(
           precoUnitario: preco,
         });
         return {
+          id: randomUUID(),
           produtoId: prod.id,
           tipoEmbalagem: i.tipoEmbalagem,
           quantidade: new Prisma.Decimal(i.quantidade.toFixed(3)),
@@ -102,25 +108,68 @@ export async function receberPedidos(
           precoUnitario: new Prisma.Decimal(preco.toFixed(2)),
           valorTotal: new Prisma.Decimal(calc.valorTotal.toFixed(2)),
           _valor: calc.valorTotal,
+          _unidades: calc.qtdUnidades,
+          _comissaoPct: prod.comissaoPercentual.toNumber(),
         };
       });
       const total = calcularTotalPedido(itens.map((i) => ({ valorTotal: i._valor })));
 
-      const criado = await prisma.pedido.create({
-        data: {
-          id: p.id,
-          vendedorId,
-          clienteId: cliente.id,
-          dispositivoId,
-          observacao: p.observacao?.trim() || null,
-          criadoNoAppEm: new Date(p.criadoNoAppEm),
-          valorTotal: new Prisma.Decimal(total.toFixed(2)),
-          formaPagamento: p.formaPagamento ?? null,
-          prazoPagamentoId: p.formaPagamento === 'BOLETO' ? p.prazoPagamentoId : null,
-          prazoDescricao,
-          itens: { create: itens.map(({ _valor, ...i }) => i) },
-        },
-        select: { id: true, numero: true },
+      const competencia = competenciaBrasilia(p.criadoNoAppEm);
+      const criado = await prisma.$transaction(async (tx) => {
+        // trava os produtos do pedido: dois pedidos ao mesmo tempo não usam o mesmo saldo
+        await tx.$queryRaw`SELECT id FROM "Produto" WHERE id IN (${Prisma.join(idsProdutos)}) FOR UPDATE`;
+        const estoques = await tx.produto.findMany({
+          where: { id: { in: idsProdutos } },
+          select: { id: true, codigo: true, descricao: true, estoque: true },
+        });
+        const reservado = await reservadoPorProduto(idsProdutos, tx);
+        const pedidoUn = new Map<string, number>();
+        for (const it of itens)
+          pedidoUn.set(it.produtoId, (pedidoUn.get(it.produtoId) ?? 0) + it._unidades);
+        for (const prod of estoques) {
+          const disp = disponivel(prod.estoque, reservado.get(prod.id) ?? 0);
+          const qtd = pedidoUn.get(prod.id) ?? 0;
+          if (disp !== null && qtd > disp + 1e-9) {
+            throw new ErroPedido(
+              `Estoque insuficiente: ${prod.codigo} - ${prod.descricao} (disponível ${formatarQuantidade(Math.max(0, disp))} UN, pedido ${formatarQuantidade(qtd)} UN)`,
+            );
+          }
+        }
+
+        const novo = await tx.pedido.create({
+          data: {
+            id: p.id,
+            vendedorId,
+            clienteId: cliente.id,
+            dispositivoId,
+            observacao: p.observacao?.trim() || null,
+            criadoNoAppEm: new Date(p.criadoNoAppEm),
+            valorTotal: new Prisma.Decimal(total.toFixed(2)),
+            formaPagamento: p.formaPagamento ?? null,
+            prazoPagamentoId: p.formaPagamento === 'BOLETO' ? p.prazoPagamentoId : null,
+            prazoDescricao,
+            itens: { create: itens.map(({ _valor, _unidades, _comissaoPct, ...i }) => i) },
+          },
+          select: { id: true, numero: true },
+        });
+        // comissão de cada item, com o % do produto neste momento
+        await tx.comissaoItem.createMany({
+          data: itens.map((it) => ({
+            pedidoId: novo.id,
+            pedidoItemId: it.id,
+            vendedorId,
+            produtoId: it.produtoId,
+            competencia,
+            valorBase: it.valorTotal,
+            percentual: new Prisma.Decimal(it._comissaoPct.toFixed(2)),
+            valorComissao: new Prisma.Decimal(
+              calcularComissao(it._valor, it._comissaoPct).toFixed(2),
+            ),
+          })),
+        });
+        // o disponível destes produtos mudou: os celulares recebem no próximo sync
+        await marcarProdutosAlterados(idsProdutos, tx);
+        return novo;
       });
       resposta.aceitos.push(criado);
     } catch (e) {
@@ -184,6 +233,7 @@ export async function montarDados(vendedorId: string, desde?: string): Promise<S
   ]);
 
   const naCarteira = clientes.filter((c) => c.vendedores.length > 0);
+  const reservado = await reservadoPorProduto(produtos.map((x) => x.id));
   const clientesRemovidos = clientes.filter((c) => c.vendedores.length === 0).map((c) => c.id);
 
   // tabelas de preço: as dos clientes enviados agora + as alteradas desde o último sync
@@ -233,6 +283,7 @@ export async function montarDados(vendedorId: string, desde?: string): Promise<S
       qtdPorCaixa: x.qtdPorCaixa,
       precoUnitario: x.precoUnitario.toNumber(),
       estoque: x.estoque?.toNumber() ?? null,
+      estoqueDisponivel: disponivel(x.estoque, reservado.get(x.id) ?? 0),
       ativo: x.ativo,
       updatedAt: x.updatedAt.toISOString(),
     })),

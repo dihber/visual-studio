@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -9,10 +9,15 @@ import {
   type TipoEmbalagem,
 } from '@dihber/shared';
 import { useRascunho } from '../../../../src/contexto/Rascunho';
-import { buscarProdutos, contarProdutos, type ProdutoLocal } from '../../../../src/db/repositorio';
+import {
+  buscarProdutos,
+  contarProdutos,
+  saldoParaPedido,
+  type ProdutoLocal,
+} from '../../../../src/db/repositorio';
 import { Botao, Campo, Vazio } from '../../../../src/components/ui';
 import { SeletorEmbalagem, Stepper } from '../../../../src/components/Quantidade';
-import { quantidadeNoPedido } from '../../../../src/lib/rascunho';
+import { quantidadeNoPedido, unidadesNoRascunho } from '../../../../src/lib/rascunho';
 import { lerNumero } from '../../../../src/lib/texto';
 import { cores } from '../../../../src/lib/tema';
 
@@ -74,7 +79,19 @@ export default function SelecionarProdutos() {
             produto={item}
             noPedidoCx={quantidadeNoPedido(r.itens, item.id, 'CX')}
             noPedidoUn={quantidadeNoPedido(r.itens, item.id, 'UN')}
-            aoAdicionar={(tipo, qtd) => r.adicionar(item, tipo, qtd)}
+            saldo={(() => {
+              const s = saldoParaPedido(item.id, r.id);
+              return s === null ? null : s - unidadesNoRascunho(r.itens, item.id);
+            })()}
+            aoAdicionar={(tipo, qtd) => {
+              try {
+                r.adicionar(item, tipo, qtd);
+                return true;
+              } catch (e) {
+                Alert.alert('Sem saldo', (e as Error).message);
+                return false;
+              }
+            }}
           />
         )}
       />
@@ -98,12 +115,15 @@ const CartaoProduto = memo(function CartaoProduto({
   produto: p,
   noPedidoCx,
   noPedidoUn,
+  saldo,
   aoAdicionar,
 }: {
   produto: ProdutoLocal;
   noPedidoCx: number;
   noPedidoUn: number;
-  aoAdicionar: (tipo: TipoEmbalagem, qtd: number) => void;
+  /** saldo que ainda dá para pôr neste pedido (UN); null = sem controle de estoque */
+  saldo: number | null;
+  aoAdicionar: (tipo: TipoEmbalagem, qtd: number) => boolean;
 }) {
   const [tipo, setTipo] = useState<TipoEmbalagem>('CX');
   const [qtd, setQtd] = useState('1');
@@ -117,7 +137,6 @@ const CartaoProduto = memo(function CartaoProduto({
       <Text style={st.info}>
         Emb.: {p.embalagem} · {formatarMoeda(p.precoUnitario)}/UN
         {p.precoUnitario !== p.precoBase ? ' (tabela do cliente)' : ''}
-        {p.estoque !== null ? ` · Estoque: ${formatarQuantidade(p.estoque)}` : ''}
       </Text>
       <View style={st.controles}>
         <SeletorEmbalagem valor={tipo} aoMudar={setTipo} />
@@ -126,14 +145,18 @@ const CartaoProduto = memo(function CartaoProduto({
           style={[st.adicionar, !valido && { opacity: 0.4 }]}
           disabled={!valido}
           onPress={() => {
-            aoAdicionar(tipo, n);
-            setQtd('1');
+            if (aoAdicionar(tipo, n)) setQtd('1');
           }}
           accessibilityLabel="Adicionar ao pedido"
         >
           <Text style={st.adicionarTexto}>+</Text>
         </Pressable>
       </View>
+      {saldo !== null && (
+        <Text style={[st.saldo, saldo <= 0 && { color: cores.perigo }]}>
+          {saldo <= 0 ? 'Sem saldo disponível' : `Disponível: ${formatarQuantidade(saldo)} UN`}
+        </Text>
+      )}
       <Text style={st.conversao}>
         {valido ? textoConversao(tipo, n, p.qtdPorCaixa) : 'Informe a quantidade'}
       </Text>
@@ -194,6 +217,7 @@ const st = StyleSheet.create({
     justifyContent: 'center',
   },
   adicionarTexto: { fontSize: 26, color: '#FFFFFF', fontWeight: '800', marginTop: -2 },
+  saldo: { fontSize: 14, fontWeight: '700', color: cores.sucesso, marginTop: 2 },
   conversao: { fontSize: 14, color: cores.primaria, fontWeight: '600', marginTop: 4 },
   noPedido: { fontSize: 14, color: cores.sucesso, fontWeight: '700' },
   rodape: {

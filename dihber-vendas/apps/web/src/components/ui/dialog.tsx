@@ -33,7 +33,7 @@ export function Dialog({
       <div
         role="dialog"
         aria-modal="true"
-        className={cn('w-full rounded-lg bg-white shadow-xl', largura)}
+        className={cn('w-full rounded-lg bg-white text-left font-normal shadow-xl', largura)}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">

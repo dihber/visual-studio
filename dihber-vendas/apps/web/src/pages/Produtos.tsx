@@ -1,4 +1,5 @@
-import { formatarMoeda, formatarQuantidade, produtoSchema } from '@dihber/shared';
+import { formatarMoeda, produtoSchema } from '@dihber/shared';
+import { CelulaEstoque } from '@/components/EstoqueProduto';
 import type { Produto } from '@/api/tipos';
 import { PaginaCadastro } from '@/components/PaginaCadastro';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,8 +33,14 @@ export function Produtos() {
           className: 'text-right whitespace-nowrap',
         },
         {
-          titulo: 'Estoque',
-          render: (p) => (p.estoque === null ? '-' : formatarQuantidade(p.estoque)),
+          titulo: 'Comissão',
+          render: (p) =>
+            p.comissaoPercentual > 0 ? `${String(p.comissaoPercentual).replace('.', ',')}%` : '-',
+          className: 'text-right',
+        },
+        {
+          titulo: 'Disponível',
+          render: (p) => <CelulaEstoque produto={p} />,
           className: 'text-right',
         },
       ]}
@@ -63,7 +70,21 @@ export function Produtos() {
           largura: 'metade',
           placeholder: '0,00',
         },
-        { nome: 'estoque', label: 'Estoque (opcional)', tipo: 'decimal', largura: 'metade' },
+        {
+          nome: 'estoque',
+          label: 'Estoque total em UN (opcional)',
+          tipo: 'decimal',
+          largura: 'metade',
+          ajuda: 'Vazio = sem controle de estoque',
+        },
+        {
+          nome: 'comissaoPercentual',
+          label: 'Comissão do vendedor (%)',
+          tipo: 'decimal',
+          largura: 'metade',
+          placeholder: '0',
+          ajuda: 'Sobre o valor vendido. Ex.: 5% de R$ 100,00 = R$ 5,00',
+        },
         { nome: 'ativo', label: 'Ativo', tipo: 'ativo' },
       ]}
       schemaCriar={produtoSchema}
@@ -73,11 +94,13 @@ export function Produtos() {
         qtdPorCaixa: String(p.qtdPorCaixa),
         precoUnitario: paraTexto(p.precoUnitario),
         estoque: paraTexto(p.estoque),
+        comissaoPercentual: p.comissaoPercentual ? paraTexto(p.comissaoPercentual) : '',
       })}
       paraEnvio={(v) => ({
         ...v,
         precoUnitario: paraNumero(v.precoUnitario),
         estoque: paraNumero(v.estoque),
+        comissaoPercentual: paraNumero(v.comissaoPercentual),
       })}
     />
   );

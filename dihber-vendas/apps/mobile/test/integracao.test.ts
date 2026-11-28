@@ -328,4 +328,60 @@ describe.skipIf(!API)('integração: carteira, tabela de preço e forma de pagam
     expect(r.clientes.removidos).toBe(1);
     expect(m.buscarClientes('Ponto Certo')).toHaveLength(0);
   });
+
+  it('estoque: disponível chega ao celular, desconta pedidos não enviados e o servidor reserva', async () => {
+    type Prod = Record<string, unknown> & { id: string; estoque: number | null };
+    const sal = (await adm<{ dados: Prod[] }>('GET', '/produtos?busca=SAL REFINADO')).dados[0];
+    const original = sal.estoque;
+    const salvarSal = (estoque: number | null) =>
+      adm('PUT', `/produtos/${sal.id}`, {
+        codigo: sal.codigo,
+        descricao: sal.descricao,
+        embalagem: sal.embalagem,
+        qtdPorCaixa: sal.qtdPorCaixa,
+        precoUnitario: sal.precoUnitario,
+        comissaoPercentual: sal.comissaoPercentual,
+        ativo: true,
+        estoque,
+      });
+    try {
+      // saldo 10 + o que já estiver reservado por outros pedidos
+      const reservado = (await adm<{ reservado: number }>('GET', `/produtos/${sal.id}/reservas`))
+        .reservado;
+      await salvarSal(10 + reservado);
+      await sync.sincronizar(() => undefined);
+      const rascunho = await import('../src/lib/rascunho');
+      const outroPedido = randomUUID();
+      expect(m.saldoParaPedido(sal.id, outroPedido)).toBe(10);
+
+      // pedido não enviado com 8 UN: outro pedido só pode usar 2
+      const cliente = m.buscarClientes('')[0];
+      const produto = m.buscarProdutos('sal refinado', cliente.tabelaPrecoId)[0];
+      const id = randomUUID();
+      m.salvarPedido({
+        id,
+        cliente,
+        observacao: '',
+        itens: [{ produto, tipoEmbalagem: 'UN', quantidade: 8 }],
+        pagamento: { forma: 'PIX', prazoId: null, prazoDescricao: null },
+        gerarId: randomUUID,
+      });
+      expect(m.saldoParaPedido(sal.id, outroPedido)).toBe(2);
+      expect(m.saldoParaPedido(sal.id, id)).toBe(10); // editando o próprio pedido, ele não conta
+      const tentativa = [{ produto, tipoEmbalagem: 'UN' as const, quantidade: 3 }];
+      expect(
+        rascunho.erroEstoque(tentativa, produto, m.saldoParaPedido(sal.id, outroPedido)),
+      ).toMatch(/disponível 2 UN, no pedido 3 UN/);
+
+      // envia: o servidor reserva e o celular recebe o disponível novo
+      const r = await sync.sincronizar(() => undefined);
+      expect(r.rejeitados).toEqual([]);
+      expect(m.saldoParaPedido(sal.id, outroPedido)).toBe(2);
+      expect(
+        (await adm<{ disponivel: number }>('GET', `/produtos/${sal.id}/reservas`)).disponivel,
+      ).toBe(2);
+    } finally {
+      await salvarSal(original);
+    }
+  });
 });

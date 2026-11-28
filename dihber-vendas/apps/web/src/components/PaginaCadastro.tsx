@@ -253,7 +253,9 @@ export function PaginaCadastro<T extends { id: string; ativo: boolean }>(p: Prop
       <Dialog
         aberto={aberto}
         aoFechar={() => setAberto(false)}
-        titulo={editando ? `Editar ${p.nomeItem}` : `${p.genero === 'f' ? 'Nova' : 'Novo'} ${p.nomeItem}`}
+        titulo={
+          editando ? `Editar ${p.nomeItem}` : `${p.genero === 'f' ? 'Nova' : 'Novo'} ${p.nomeItem}`
+        }
         largura="max-w-2xl"
         rodape={
           <>

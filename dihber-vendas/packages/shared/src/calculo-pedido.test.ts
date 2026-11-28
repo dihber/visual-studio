@@ -70,3 +70,17 @@ describe('formatarSistema', () => {
     expect(formatarSistema(null)).toBeNull();
   });
 });
+
+import { calcularComissao, competenciaBrasilia } from './index';
+describe('comissão e competência', () => {
+  it('comissão = valor vendido × %', () => {
+    expect(calcularComissao(10, 5)).toBe(0.5);
+    expect(calcularComissao(100, 5)).toBe(5);
+    expect(calcularComissao(33.33, 2.5)).toBe(0.83);
+    expect(calcularComissao(50, 0)).toBe(0);
+  });
+  it('mês no horário de Brasília', () => {
+    expect(competenciaBrasilia('2026-12-01T01:00:00Z')).toBe('2026-11'); // 30/11 22h em Brasília
+    expect(competenciaBrasilia('2026-12-01T03:00:00Z')).toBe('2026-12');
+  });
+});

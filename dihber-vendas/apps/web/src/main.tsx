@@ -13,6 +13,7 @@ import { Clientes } from '@/pages/Clientes';
 import { Produtos } from '@/pages/Produtos';
 import { TabelasPreco } from '@/pages/TabelasPreco';
 import { Prazos } from '@/pages/Prazos';
+import { Comissoes } from '@/pages/Comissoes';
 import { Vendedores } from '@/pages/Vendedores';
 import { Supervisores } from '@/pages/Supervisores';
 import { Usuarios } from '@/pages/Usuarios';
@@ -41,6 +42,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/vendas-equipe" element={<VendasEquipe />} />
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/produtos" element={<Produtos />} />
+              <Route path="/comissoes" element={<Comissoes />} />
               <Route
                 path="/tabelas-preco"
                 element={

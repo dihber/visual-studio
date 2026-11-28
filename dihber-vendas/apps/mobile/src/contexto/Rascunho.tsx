@@ -5,6 +5,7 @@ import {
   obterCliente,
   obterPedido,
   precoProduto,
+  saldoParaPedido,
   salvarPedido,
   type ClienteLocal,
 } from '../db/repositorio';
@@ -12,6 +13,7 @@ import {
   adicionarItem as add,
   alterarQuantidade as alterar,
   calcularRascunho,
+  erroEstoque,
   pagamentoValido,
   removerItem as remover,
   type PagamentoEscolhido,
@@ -134,9 +136,22 @@ export function RascunhoProvider({ children }: { children: ReactNode }) {
       setItens((s) => reprecificar(s, c));
       setPagamento((p) => pagamentoValido(p, c.prazos));
     },
-    adicionar: (produto, tipoEmbalagem, quantidade) =>
-      setItens((s) => add(s, { produto, tipoEmbalagem, quantidade })),
-    alterarQuantidade: (i, q) => setItens((s) => alterar(s, i, q)),
+    // bloqueia passar do saldo disponível (lança erro com a mensagem para o vendedor)
+    adicionar: (produto, tipoEmbalagem, quantidade) => {
+      const nova = add(itens, { produto, tipoEmbalagem, quantidade });
+      const erro = erroEstoque(nova, produto, saldoParaPedido(produto.id, id));
+      if (erro) throw new Error(erro);
+      setItens(nova);
+    },
+    alterarQuantidade: (i, q) => {
+      const atual = itens[i];
+      const nova = alterar(itens, i, q);
+      if (atual && q > atual.quantidade) {
+        const erro = erroEstoque(nova, atual.produto, saldoParaPedido(atual.produto.id, id));
+        if (erro) throw new Error(erro);
+      }
+      setItens(nova);
+    },
     remover: (i) => setItens((s) => remover(s, i)),
     setObservacao,
     setPagamento,
@@ -144,6 +159,11 @@ export function RascunhoProvider({ children }: { children: ReactNode }) {
       if (!cliente) throw new Error('Selecione o cliente.');
       if (itens.length === 0) throw new Error('Adicione ao menos um produto.');
       if (!pagamento) throw new Error('Selecione a forma de pagamento.');
+      // o saldo pode ter mudado depois de um sync: confere de novo antes de salvar
+      for (const i of itens) {
+        const erro = erroEstoque(itens, i.produto, saldoParaPedido(i.produto.id, id));
+        if (erro) throw new Error(erro);
+      }
       salvarPedido({ id, cliente, itens, observacao, pagamento, gerarId: Crypto.randomUUID });
       return id;
     },

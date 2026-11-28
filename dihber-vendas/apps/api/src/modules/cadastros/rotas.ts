@@ -10,7 +10,11 @@ import {
 } from '@dihber/shared';
 import { registrarCrud } from './crud';
 import { registrarRotasItensTabela } from './tabela-preco-itens';
-import { prisma } from '../../lib/prisma';
+import { Prisma, prisma } from '../../lib/prisma';
+import { disponivel, reservadoPorProduto, STATUS_RESERVA } from '../../lib/estoque';
+import { filtroVisibilidadePedidos } from '../../lib/visibilidade';
+import { ErroHttp } from '../../lib/erros';
+import { z } from 'zod';
 
 export async function rotasCadastros(app: FastifyInstance) {
   registrarCrud(app, {
@@ -115,7 +119,66 @@ export async function rotasCadastros(app: FastifyInstance) {
     camposBusca: ['codigo', 'descricao'],
     ordenarPor: 'descricao',
     perfisLeitura: ['ADMIN', 'SUPERVISOR'],
+    // saldo: total, reservado (pedidos pendentes/aprovados) e disponível
+    completar: async (produtos) => {
+      const reservado = await reservadoPorProduto(produtos.map((p) => p.id as string));
+      return produtos.map((p) => {
+        const r = reservado.get(p.id as string) ?? 0;
+        return {
+          ...p,
+          estoqueReservado: r,
+          estoqueDisponivel: disponivel(p.estoque as Prisma.Decimal | null, r),
+        };
+      });
+    },
   });
+
+  /** Pedidos que estão reservando o estoque de um produto. */
+  app.get(
+    '/produtos/:id/reservas',
+    { preHandler: [app.autenticar, app.exigirPerfil('ADMIN', 'SUPERVISOR')] },
+    async (req) => {
+      const { id } = z.object({ id: z.string().uuid('ID inválido') }).parse(req.params);
+      const produto = await prisma.produto.findUnique({
+        where: { id },
+        select: { id: true, codigo: true, descricao: true, estoque: true },
+      });
+      if (!produto) throw new ErroHttp(404, 'Produto não encontrado');
+      const reservado = (await reservadoPorProduto([id])).get(id) ?? 0;
+      const itens = await prisma.pedidoItem.findMany({
+        where: {
+          produtoId: id,
+          pedido: {
+            status: { in: [...STATUS_RESERVA] },
+            ...filtroVisibilidadePedidos(req.usuario),
+          },
+        },
+        select: {
+          tipoEmbalagem: true,
+          quantidade: true,
+          qtdUnidades: true,
+          pedido: {
+            select: {
+              id: true,
+              numero: true,
+              status: true,
+              criadoNoAppEm: true,
+              cliente: { select: { codigo: true, razaoSocial: true, nomeFantasia: true } },
+              vendedor: { select: { nome: true } },
+            },
+          },
+        },
+        orderBy: { pedido: { numero: 'desc' } },
+      });
+      return {
+        produto: { ...produto },
+        estoque: produto.estoque,
+        reservado,
+        disponivel: disponivel(produto.estoque, reservado),
+        pedidos: itens,
+      };
+    },
+  );
 
   registrarCrud(app, {
     rota: '/tabelas-preco',

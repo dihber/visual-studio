@@ -28,6 +28,8 @@ interface OpcoesCrud {
   paraDados?: (dados: Record<string, unknown>, editando: boolean) => Record<string, unknown>;
   /** Executado depois de criar/alterar/ativar (ex.: marcar clientes para o sync). */
   aposSalvar?: (registro: { id: string }) => Promise<void>;
+  /** Completa os registros lidos (ex.: estoque reservado dos produtos). */
+  completar?: (registros: Record<string, unknown>[]) => Promise<Record<string, unknown>[]>;
   /** Filtros extras aceitos na query string. */
   filtrosExtras?: (query: Record<string, unknown>) => Record<string, unknown>;
 }
@@ -61,7 +63,12 @@ export function registrarCrud(app: FastifyInstance, o: OpcoesCrud) {
       }),
       delegate.count({ where }),
     ]);
-    return { dados, total, pagina: q.pagina, porPagina: q.porPagina };
+    return {
+      dados: o.completar ? await o.completar(dados) : dados,
+      total,
+      pagina: q.pagina,
+      porPagina: q.porPagina,
+    };
   });
 
   app.get(`${o.rota}/:id`, leitura, async (req) => {
@@ -71,7 +78,7 @@ export function registrarCrud(app: FastifyInstance, o: OpcoesCrud) {
       include: o.includeDetalhe ?? o.include,
     });
     if (!registro) throw naoEncontrado(o.nomeExibicao);
-    return registro;
+    return o.completar ? (await o.completar([registro]))[0] : registro;
   });
 
   app.post(o.rota, escrita, async (req, reply) => {

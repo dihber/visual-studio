@@ -80,6 +80,11 @@ const MIGRACOES: string[] = [
   ALTER TABLE pedidos ADD COLUMN prazoDescricao TEXT;
   DELETE FROM meta WHERE chave = 'desde';
   `,
+  // v4: saldo disponível do produto (estoque − reservado no servidor). Carga completa de novo.
+  `
+  ALTER TABLE produtos ADD COLUMN estoqueDisponivel REAL;
+  DELETE FROM meta WHERE chave = 'desde';
+  `,
 ];
 
 export function migrarBanco() {

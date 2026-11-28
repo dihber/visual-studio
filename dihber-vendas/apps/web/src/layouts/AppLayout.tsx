@@ -10,6 +10,7 @@ import {
   Users,
   UsersRound,
   CalendarClock,
+  Percent,
   Tags,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -25,6 +26,7 @@ const MENU = [
     icone: BarChart3,
     perfis: ['ADMIN', 'SUPERVISOR'],
   },
+  { para: '/comissoes', label: 'Comissões', icone: Percent, perfis: ['ADMIN', 'SUPERVISOR'] },
   { para: '/clientes', label: 'Clientes', icone: Store, perfis: ['ADMIN', 'SUPERVISOR'] },
   { para: '/produtos', label: 'Produtos', icone: Boxes, perfis: ['ADMIN', 'SUPERVISOR'] },
   { para: '/tabelas-preco', label: 'Tabelas de preço', icone: Tags, perfis: ['ADMIN'] },

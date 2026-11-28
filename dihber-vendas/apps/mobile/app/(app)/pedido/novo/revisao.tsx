@@ -69,7 +69,12 @@ export default function Revisao() {
                 texto={formatarNumeroEntrada(i.quantidade)}
                 aoMudar={(t) => {
                   const n = lerNumero(t);
-                  if (n > 0) r.alterarQuantidade(index, n);
+                  if (!(n > 0)) return;
+                  try {
+                    r.alterarQuantidade(index, n);
+                  } catch (e) {
+                    Alert.alert('Sem saldo', (e as Error).message);
+                  }
                 }}
               />
               <Text style={st.valor}>{formatarMoeda(i.valorTotal)}</Text>

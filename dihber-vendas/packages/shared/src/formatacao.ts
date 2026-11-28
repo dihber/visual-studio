@@ -47,3 +47,8 @@ export function formatarSistema(sistema: string | null | undefined): string | nu
   const fingerprint = sistema.match(/^[^/\s]+\/[^/\s]+\/[^:\s]+:([\d.]+)\//);
   return fingerprint ? `Android ${fingerprint[1]}` : sistema;
 }
+
+/** Mês (AAAA-MM) de uma data no horário de Brasília. */
+export function competenciaBrasilia(data: string | Date): string {
+  return new Date(data).toLocaleDateString('en-CA', { timeZone: TZ_BRASILIA }).slice(0, 7);
+}

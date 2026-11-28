@@ -62,3 +62,10 @@ export { arred };
 function formatarNumero(n: number) {
   return n.toLocaleString('pt-BR', { maximumFractionDigits: 3 });
 }
+
+/** Comissão do item: valor vendido × % (arredondado em centavos). Ex.: R$ 100,00 × 5% = R$ 5,00. */
+export function calcularComissao(valorVendido: number, percentual: number): number {
+  const baseCent = Math.round(valorVendido * 100);
+  const pctCentesimos = Math.round(percentual * 100);
+  return Math.round((baseCent * pctCentesimos) / 10000) / 100;
+}

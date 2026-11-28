@@ -190,6 +190,7 @@ export function PedidoDetalhe() {
               <Th className="text-right">Qtd em UN</Th>
               <Th className="text-right">Preço UN</Th>
               <Th className="text-right">Total</Th>
+              <Th className="text-right">Comissão</Th>
             </tr>
           </thead>
           <tbody>
@@ -204,6 +205,11 @@ export function PedidoDetalhe() {
                 <Td className="whitespace-nowrap text-right">{formatarMoeda(i.precoUnitario)}</Td>
                 <Td className="whitespace-nowrap text-right font-medium">
                   {formatarMoeda(i.valorTotal)}
+                </Td>
+                <Td className="whitespace-nowrap text-right text-slate-600">
+                  {i.comissao && i.comissao.percentual > 0
+                    ? `${formatarMoeda(i.comissao.valorComissao)} (${String(i.comissao.percentual).replace('.', ',')}%)`
+                    : '-'}
                 </Td>
               </tr>
             ))}

@@ -70,3 +70,29 @@ describe('forma de pagamento', () => {
     ).not.toBeNull();
   });
 });
+
+import { erroEstoque, unidadesNoRascunho } from './rascunho';
+describe('estoque no rascunho', () => {
+  const cafe = {
+    id: 'c',
+    codigo: '121',
+    descricao: 'CAFÉ',
+    embalagem: 'CX C/ 20 UN',
+    qtdPorCaixa: 20,
+    precoUnitario: 17.9,
+  };
+  const itens = [
+    { produto: cafe, tipoEmbalagem: 'CX' as const, quantidade: 2 },
+    { produto: cafe, tipoEmbalagem: 'UN' as const, quantidade: 5 },
+  ];
+  it('soma CX e UN em unidades', () => {
+    expect(unidadesNoRascunho(itens, 'c')).toBe(45);
+  });
+  it('bloqueia acima do saldo; sem controle não bloqueia', () => {
+    expect(erroEstoque(itens, cafe, 45)).toBeNull();
+    expect(erroEstoque(itens, cafe, 44)).toBe(
+      'Estoque insuficiente para 121 - CAFÉ: disponível 44 UN, no pedido 45 UN.',
+    );
+    expect(erroEstoque(itens, cafe, null)).toBeNull();
+  });
+});

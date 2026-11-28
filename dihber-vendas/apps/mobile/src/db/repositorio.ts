@@ -39,6 +39,8 @@ export interface ProdutoLocal {
   precoUnitario: number;
   precoBase: number;
   estoque: number | null;
+  /** saldo para vender no servidor (null = sem controle de estoque) */
+  estoqueDisponivel: number | null;
 }
 
 export type SituacaoLocal = 'NAO_ENVIADO' | 'ENVIADO';
@@ -200,7 +202,7 @@ export function aplicarClientes(
 export function buscarProdutos(texto: string, tabelaPrecoId: string | null = null): ProdutoLocal[] {
   const f = filtroBusca(texto, 'p.busca');
   return db.getAllSync<ProdutoLocal>(
-    `SELECT p.id, p.codigo, p.descricao, p.embalagem, p.qtdPorCaixa, p.estoque,
+    `SELECT p.id, p.codigo, p.descricao, p.embalagem, p.qtdPorCaixa, p.estoque, p.estoqueDisponivel,
             COALESCE(t.preco, p.precoUnitario) AS precoUnitario, p.precoUnitario AS precoBase
        FROM produtos p
        LEFT JOIN precos_tabela t ON t.tabelaId = ? AND t.produtoId = p.id
@@ -259,10 +261,11 @@ export function aplicarProdutos(lista: ProdutoSync[], substituir = false) {
   if (!lista.length) return r;
   const existe = db.prepareSync('SELECT 1 FROM produtos WHERE id = ?');
   const upsert = db.prepareSync(
-    `INSERT INTO produtos (id, codigo, descricao, embalagem, qtdPorCaixa, precoUnitario, estoque, busca)
-     VALUES ($id, $codigo, $descricao, $embalagem, $qtdPorCaixa, $precoUnitario, $estoque, $busca)
+    `INSERT INTO produtos (id, codigo, descricao, embalagem, qtdPorCaixa, precoUnitario, estoque, estoqueDisponivel, busca)
+     VALUES ($id, $codigo, $descricao, $embalagem, $qtdPorCaixa, $precoUnitario, $estoque, $estoqueDisponivel, $busca)
      ON CONFLICT(id) DO UPDATE SET codigo=excluded.codigo, descricao=excluded.descricao, embalagem=excluded.embalagem,
-       qtdPorCaixa=excluded.qtdPorCaixa, precoUnitario=excluded.precoUnitario, estoque=excluded.estoque, busca=excluded.busca`,
+       qtdPorCaixa=excluded.qtdPorCaixa, precoUnitario=excluded.precoUnitario, estoque=excluded.estoque,
+       estoqueDisponivel=excluded.estoqueDisponivel, busca=excluded.busca`,
   );
   const remover = db.prepareSync('DELETE FROM produtos WHERE id = ?');
   try {
@@ -284,6 +287,7 @@ export function aplicarProdutos(lista: ProdutoSync[], substituir = false) {
           $qtdPorCaixa: p.qtdPorCaixa,
           $precoUnitario: p.precoUnitario,
           $estoque: p.estoque,
+          $estoqueDisponivel: p.estoqueDisponivel ?? null,
           $busca: normalizar(`${p.codigo} ${p.descricao}`),
         });
         ja ? r.alterados++ : r.novos++;
@@ -442,4 +446,22 @@ export function atualizarStatusPedidos(
     }
   });
   return n;
+}
+
+/**
+ * Saldo que este pedido pode usar de um produto: disponível no servidor (último sync) menos o
+ * que outros pedidos deste celular ainda não enviados já estão usando. null = sem controle.
+ */
+export function saldoParaPedido(produtoId: string, pedidoAtualId: string): number | null {
+  const p = db.getFirstSync<{ estoqueDisponivel: number | null }>(
+    'SELECT estoqueDisponivel FROM produtos WHERE id = ?',
+    [produtoId],
+  );
+  if (!p || p.estoqueDisponivel === null || p.estoqueDisponivel === undefined) return null;
+  const local = db.getFirstSync<{ un: number | null }>(
+    `SELECT SUM(i.qtdUnidades) AS un FROM pedido_itens i JOIN pedidos x ON x.id = i.pedidoId
+      WHERE x.situacao = 'NAO_ENVIADO' AND x.id <> ? AND i.produtoId = ?`,
+    [pedidoAtualId, produtoId],
+  );
+  return Math.round((p.estoqueDisponivel - (local?.un ?? 0)) * 1000) / 1000;
 }

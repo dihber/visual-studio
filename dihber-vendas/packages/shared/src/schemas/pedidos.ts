@@ -100,6 +100,8 @@ export interface ProdutoSync {
   qtdPorCaixa: number;
   precoUnitario: number;
   estoque: number | null;
+  /** estoque − reservado (pedidos pendentes e aprovados); null = sem controle de estoque */
+  estoqueDisponivel: number | null;
   ativo: boolean;
   updatedAt: string;
 }

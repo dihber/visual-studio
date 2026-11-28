@@ -137,6 +137,7 @@ const INFO_STATUS: Record<
   APROVADO: { icone: '🟢', texto: 'Aprovado', cor: '#065F46', fundo: '#D1FAE5' },
   REPROVADO: { icone: '🔴', texto: 'Reprovado', cor: '#991B1B', fundo: '#FEE2E2' },
   CANCELADO: { icone: '⚫', texto: 'Cancelado', cor: '#334155', fundo: '#E2E8F0' },
+  FATURADO: { icone: '🔵', texto: 'Faturado', cor: '#1E40AF', fundo: '#DBEAFE' },
 };
 
 export function statusDoPedido(p: Pick<PedidoLocal, 'situacao' | 'status'>) {

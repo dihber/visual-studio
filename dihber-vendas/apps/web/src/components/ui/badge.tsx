@@ -34,6 +34,7 @@ const corStatus: Record<StatusPedido, keyof typeof cores> = {
   APROVADO: 'verde',
   REPROVADO: 'vermelho',
   CANCELADO: 'cinza',
+  FATURADO: 'azul',
 };
 
 export function BadgeStatus({ status }: { status: StatusPedido }) {

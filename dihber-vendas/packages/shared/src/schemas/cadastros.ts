@@ -69,6 +69,11 @@ export const produtoSchema = z.object({
   qtdPorCaixa: z.preprocess(numero, z.number().int('Deve ser inteiro').min(1, 'Mínimo 1')),
   precoUnitario: z.preprocess(numero, z.number().min(0, 'Preço inválido').max(9999999999)),
   estoque: z.preprocess((v) => numero(v) ?? null, z.number().nullable()),
+  /** % de comissão do vendedor sobre o valor vendido (vazio = 0). */
+  comissaoPercentual: z.preprocess(
+    (v) => numero(v) ?? 0,
+    z.number().min(0, 'Comissão inválida').max(100, 'Máximo 100%'),
+  ),
   ativo: z.boolean().default(true),
 });
 export type ProdutoInput = z.infer<typeof produtoSchema>;

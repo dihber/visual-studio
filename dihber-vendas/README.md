@@ -100,6 +100,13 @@ Use `TEST_DATABASE_URL` para apontar para outro servidor.
 - **Prazos** (menu _Prazos_): cadastro livre dos prazos de boleto (ex.: "30 dias", "30/60 dias"), vinculados a cada cliente. No app, ao finalizar o pedido, o vendedor escolhe **PIX** (sempre disponível) ou **Boleto** em um dos prazos do cliente. O servidor recusa prazo que não pertence ao cliente.
 - Pedidos de versões antigas do app (sem forma de pagamento) continuam sendo aceitos e aparecem como "Não informado".
 
+### Comissão e estoque reservado
+
+- **Comissão:** no cadastro do produto, informe o **% de comissão** do vendedor. Ao receber cada pedido, o sistema grava em uma tabela própria (`ComissaoItem`) a comissão de cada item: valor vendido × %, com o % daquele dia. Ex.: 10 itens de R$ 10,00 com 5% = R$ 5,00. Mudar o % depois não altera pedidos antigos.
+- **Relatório de comissões** (menu _Comissões_): por vendedor e mês do pedido (horário de Brasília). Faturamento e comissão contam só pedidos **faturados**; a coluna _Previsão_ mostra os aprovados ainda não faturados. Supervisor vê só a equipe.
+- **Estoque reservado:** pedidos pendentes e aprovados reservam o estoque (em UN); reprovar ou cancelar libera. A baixa do saldo total acontece ao **faturar**. Na lista de produtos, clique no disponível para ver saldo total, reservado e disponível; clique em _Reservado_ para ver os pedidos.
+- **Sem saldo, não vende:** o app mostra o disponível e não deixa passar dele (descontando também os pedidos do celular ainda não enviados); o servidor recusa o pedido se, no sync, não houver saldo. Produto sem estoque cadastrado não tem controle.
+
 ### Perdi a senha do admin
 
 No Railway, serviço **api** › **Variables**, crie `ADMIN_REDEFINIR_SENHA` com a senha nova (mínimo 8 caracteres) e aplique. Ao reiniciar, a API troca a senha do usuário `admin` (e o reativa, se estiver inativo). **Depois de entrar, apague a variável**: enquanto ela existir, cada reinício redefine a senha.

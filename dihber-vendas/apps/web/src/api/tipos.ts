@@ -79,7 +79,64 @@ export interface Produto {
   qtdPorCaixa: number;
   precoUnitario: number;
   estoque: number | null;
+  comissaoPercentual: number;
+  /** pedidos pendentes e aprovados */
+  estoqueReservado: number;
+  /** null = produto sem controle de estoque */
+  estoqueDisponivel: number | null;
   ativo: boolean;
+}
+
+export interface ReservasProduto {
+  produto: { id: string; codigo: string; descricao: string };
+  estoque: number | null;
+  reservado: number;
+  disponivel: number | null;
+  pedidos: {
+    tipoEmbalagem: TipoEmbalagem;
+    quantidade: number;
+    qtdUnidades: number;
+    pedido: {
+      id: string;
+      numero: number;
+      status: StatusPedido;
+      criadoNoAppEm: string;
+      cliente: { codigo: string; razaoSocial: string; nomeFantasia: string | null };
+      vendedor: { nome: string };
+    };
+  }[];
+}
+
+export interface ResumoComissao {
+  pedidos: number;
+  faturamento: number;
+  comissao: number;
+}
+
+export interface RelatorioComissoes {
+  competencia: string;
+  vendedores: {
+    vendedor: { id: string; codigo: string; nome: string };
+    faturado: ResumoComissao;
+    previsao: ResumoComissao;
+  }[];
+  total: { faturado: ResumoComissao; previsao: ResumoComissao };
+}
+
+export interface ItemComissao {
+  valorBase: number;
+  percentual: number;
+  valorComissao: number;
+  statusTexto: string;
+  produto: { codigo: string; descricao: string };
+  pedidoItem: { tipoEmbalagem: TipoEmbalagem; quantidade: number };
+  pedido: {
+    id: string;
+    numero: number;
+    status: StatusPedido;
+    criadoNoAppEm: string;
+    cliente: { razaoSocial: string; nomeFantasia: string | null };
+  };
 }
 
 export interface Dispositivo {
@@ -142,6 +199,7 @@ export interface PedidoDetalhe extends Omit<PedidoLista, '_count' | 'cliente' | 
     qtdUnidades: number;
     precoUnitario: number;
     valorTotal: number;
+    comissao: { percentual: number; valorComissao: number } | null;
     produto: {
       id: string;
       codigo: string;
