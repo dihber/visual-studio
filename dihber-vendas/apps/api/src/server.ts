@@ -1,5 +1,5 @@
 import { criarApp } from './app';
-import { criarAdminInicial } from './lib/admin-inicial';
+import { criarAdminInicial, redefinirSenhaAdmin } from './lib/admin-inicial';
 
 if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
   console.error('JWT_SECRET não definido. Configure a variável de ambiente.');
@@ -18,6 +18,7 @@ const host = process.env.HOST ?? '0.0.0.0';
 
 try {
   await criarAdminInicial(app.log);
+  await redefinirSenhaAdmin(app.log);
   await app.listen({ port, host });
 } catch (err) {
   app.log.error(err);

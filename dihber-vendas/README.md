@@ -93,6 +93,10 @@ Use `TEST_DATABASE_URL` para apontar para outro servidor.
 | Período nos filtros                             | Usa a data do pedido no app (`criadoNoAppEm`), em horário de Brasília. "Total vendido" soma pendentes + aprovados.      |
 | Integração ERP, hospedagem, contas Apple/Google | Pendentes — dependem de você.                                                                                           |
 
+### Perdi a senha do admin
+
+No Railway, serviço **api** › **Variables**, crie `ADMIN_REDEFINIR_SENHA` com a senha nova (mínimo 8 caracteres) e aplique. Ao reiniciar, a API troca a senha do usuário `admin` (e o reativa, se estiver inativo). **Depois de entrar, apague a variável**: enquanto ela existir, cada reinício redefine a senha.
+
 ## Publicação (Fase 11)
 
 - **API + Web**: `docker-compose.prod.yml` (Postgres + API + Nginx servindo o web e fazendo proxy de `/api`). Defina `JWT_SECRET` e `POSTGRES_PASSWORD` e coloque HTTPS na frente (Caddy/Traefik/Certbot). A API aplica as migrations ao subir.
