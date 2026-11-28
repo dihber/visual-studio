@@ -14,13 +14,13 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://web-production-64151e34.up.railway.app/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://dihbervendas.up.railway.app/api/v1"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://web-production-64151e34.up.railway.app/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://dihbervendas.up.railway.app/api/v1"
       }
     },
     "teste": {
