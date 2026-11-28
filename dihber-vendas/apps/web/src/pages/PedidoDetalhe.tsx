@@ -10,6 +10,7 @@ import {
   formatarQuantidade,
   reprovarSchema,
   formatarSistema,
+  textoPagamento,
 } from '@dihber/shared';
 import { http } from '@/api/cliente';
 import type { PedidoDetalhe as Pedido } from '@/api/tipos';
@@ -139,11 +140,15 @@ export function PedidoDetalhe() {
             <Info
               rotulo="Celular"
               valor={
-                [p.dispositivo.modelo, formatarSistema(p.dispositivo.sistema)?.replace(/ /g, '\u00a0')]
+                [
+                  p.dispositivo.modelo,
+                  formatarSistema(p.dispositivo.sistema)?.replace(/ /g, '\u00a0'),
+                ]
                   .filter(Boolean)
                   .join(' · ') || '-'
               }
             />
+            <Info rotulo="Pagamento" valor={textoPagamento(p.formaPagamento, p.prazoDescricao)} />
             <Info rotulo="Versão do app" valor={p.dispositivo.appVersao ?? '-'} />
           </dl>
         </Card>

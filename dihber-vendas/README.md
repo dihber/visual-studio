@@ -93,6 +93,13 @@ Use `TEST_DATABASE_URL` para apontar para outro servidor.
 | Período nos filtros                             | Usa a data do pedido no app (`criadoNoAppEm`), em horário de Brasília. "Total vendido" soma pendentes + aprovados.      |
 | Integração ERP, hospedagem, contas Apple/Google | Pendentes — dependem de você.                                                                                           |
 
+### Carteira, tabelas de preço e formas de pagamento
+
+- **Carteira:** no cadastro do cliente, marque os vendedores que podem vender para ele. O app só mostra os clientes da carteira do vendedor; cliente sem vendedor não aparece para ninguém. Na primeira atualização com essa função, todos os clientes que já existiam foram vinculados a todos os vendedores que já existiam, para ninguém perder clientes; ajuste a carteira de cada um no portal.
+- **Tabelas de preço** (menu _Tabelas de preço_): preço da unidade por produto e por região (ex.: Itupeva/SP, Cuiabá/MT). Vincule a tabela no cadastro do cliente. Produto sem preço na tabela (ou cliente sem tabela, ou tabela inativa) usa o preço base do produto. O servidor recalcula com o preço da tabela.
+- **Prazos** (menu _Prazos_): cadastro livre dos prazos de boleto (ex.: "30 dias", "30/60 dias"), vinculados a cada cliente. No app, ao finalizar o pedido, o vendedor escolhe **PIX** (sempre disponível) ou **Boleto** em um dos prazos do cliente. O servidor recusa prazo que não pertence ao cliente.
+- Pedidos de versões antigas do app (sem forma de pagamento) continuam sendo aceitos e aparecem como "Não informado".
+
 ### Perdi a senha do admin
 
 No Railway, serviço **api** › **Variables**, crie `ADMIN_REDEFINIR_SENHA` com a senha nova (mínimo 8 caracteres) e aplique. Ao reiniciar, a API troca a senha do usuário `admin` (e o reativa, se estiver inativo). **Depois de entrar, apague a variável**: enquanto ela existir, cada reinício redefine a senha.

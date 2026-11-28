@@ -46,3 +46,27 @@ describe('rascunho do pedido', () => {
     expect(lerNumero('')).toBeNaN();
   });
 });
+
+import { opcoesPagamento, pagamentoValido } from './rascunho';
+describe('forma de pagamento', () => {
+  const prazos = [
+    { id: 'p30', descricao: '30 dias' },
+    { id: 'p60', descricao: '30/60 dias' },
+  ];
+  it('PIX sempre; boleto só com os prazos do cliente', () => {
+    expect(opcoesPagamento([]).map((o) => o.texto)).toEqual(['PIX']);
+    expect(opcoesPagamento(prazos).map((o) => o.texto)).toEqual([
+      'PIX',
+      'Boleto 30 dias',
+      'Boleto 30/60 dias',
+    ]);
+  });
+  it('ao trocar de cliente, boleto com prazo não permitido é desfeito', () => {
+    const boleto = { forma: 'BOLETO' as const, prazoId: 'p60', prazoDescricao: '30/60 dias' };
+    expect(pagamentoValido(boleto, prazos)).toEqual(boleto);
+    expect(pagamentoValido(boleto, [prazos[0]])).toBeNull();
+    expect(
+      pagamentoValido({ forma: 'PIX', prazoId: null, prazoDescricao: null }, []),
+    ).not.toBeNull();
+  });
+});

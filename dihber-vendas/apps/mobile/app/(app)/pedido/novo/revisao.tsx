@@ -6,6 +6,7 @@ import { formatarMoeda, formatarQuantidade } from '@dihber/shared';
 import { useRascunho } from '../../../../src/contexto/Rascunho';
 import { Botao, Campo, Vazio } from '../../../../src/components/ui';
 import { Stepper } from '../../../../src/components/Quantidade';
+import { SeletorPagamento } from '../../../../src/components/Pagamento';
 import { formatarNumeroEntrada, lerNumero } from '../../../../src/lib/texto';
 import { cores } from '../../../../src/lib/tema';
 
@@ -83,6 +84,11 @@ export default function Revisao() {
             <Pressable onPress={() => router.back()}>
               <Text style={st.maisProdutos}>➕ Adicionar mais produtos</Text>
             </Pressable>
+            <SeletorPagamento
+              prazos={r.cliente?.prazos ?? []}
+              valor={r.pagamento}
+              aoMudar={r.setPagamento}
+            />
             <Campo
               rotulo="Observação"
               value={r.observacao}

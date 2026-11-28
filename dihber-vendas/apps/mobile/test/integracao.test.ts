@@ -4,7 +4,7 @@
  *   API_E2E_URL=http://localhost:3333/api/v1 pnpm --filter mobile test
  */
 import { randomUUID } from 'node:crypto';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const API = process.env.API_E2E_URL;
 process.env.EXPO_PUBLIC_API_URL = API;
@@ -162,11 +162,170 @@ describe.skipIf(!API)('integração app ⇄ API', () => {
       cliente: m.buscarClientes('')[0],
       itens: [{ produto: m.buscarProdutos('')[0], tipoEmbalagem: 'UN', quantidade: 1 }],
       observacao: '',
+      pagamento: { forma: 'PIX', prazoId: null, prazoDescricao: null },
       gerarId: randomUUID,
     });
     await expect(auth.entrar('vendedor2', 'vend123')).rejects.toThrow(/pedidos não enviados/);
     m.excluirPedido(id);
     await auth.entrar('vendedor2', 'vend123');
     expect(m.contarProdutos()).toBe(0); // dados do anterior foram limpos
+  });
+});
+
+describe.skipIf(!API)('integração: carteira, tabela de preço e forma de pagamento', () => {
+  let m: typeof import('../src/db/repositorio');
+  let sync: typeof import('../src/sync/sincronizar');
+  let auth: typeof import('../src/sync/auth');
+  let token = '';
+  const sufixo = randomUUID().slice(0, 6);
+  const ids: Record<string, string> = {};
+  type Cli = Record<string, unknown> & { id: string; codigo: string };
+  const originais: Record<string, Cli> = {};
+
+  const adm = async <T>(metodo: string, caminho: string, corpo?: unknown): Promise<T> => {
+    const r = await fetch(`${API}${caminho}`, {
+      method: metodo,
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: corpo === undefined ? undefined : JSON.stringify(corpo),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(`${metodo} ${caminho}: ${JSON.stringify(j)}`);
+    return j as T;
+  };
+  const clientePorCodigo = async (codigo: string) =>
+    (await adm<{ dados: Cli[] }>('GET', `/clientes?busca=${codigo}&ativo=todos`)).dados.find(
+      (c) => c.codigo === codigo,
+    )!;
+  const salvarCliente = (c: Cli, extra: Record<string, unknown>) =>
+    adm('PUT', `/clientes/${c.id}`, {
+      codigo: c.codigo,
+      razaoSocial: c.razaoSocial,
+      nomeFantasia: c.nomeFantasia,
+      cpfCnpj: c.cpfCnpj,
+      telefone: c.telefone,
+      email: c.email,
+      endereco: c.endereco,
+      cidade: c.cidade,
+      uf: c.uf,
+      ativo: true,
+      ...extra,
+    });
+
+  beforeAll(async () => {
+    m = await import('../src/db/repositorio');
+    sync = await import('../src/sync/sincronizar');
+    auth = await import('../src/sync/auth');
+    token = (
+      await fetch(`${API}/auth/login`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ login: 'admin', senha: 'admin123', origem: 'web' }),
+      }).then((r) => r.json())
+    ).accessToken;
+    const vend = (
+      await adm<{ dados: { id: string; codigo: string }[] }>('GET', '/vendedores?porPagina=100')
+    ).dados;
+    ids.v07 = vend.find((v) => v.codigo === '07')!.id;
+    ids.v08 = vend.find((v) => v.codigo === '08')!.id;
+    ids.prazo = (
+      await adm<{ id: string }>('POST', '/prazos', {
+        codigo: `IT30-${sufixo}`,
+        descricao: `IT 30 dias ${sufixo}`,
+      })
+    ).id;
+    ids.tabela = (
+      await adm<{ id: string }>('POST', '/tabelas-preco', {
+        codigo: `IT-${sufixo}`,
+        nome: `Teste ${sufixo}`,
+      })
+    ).id;
+    const arroz = (
+      await adm<{ dados: { id: string; descricao: string }[] }>('GET', '/produtos?busca=ARROZ')
+    ).dados[0];
+    ids.arroz = arroz.id;
+    await adm('PUT', `/tabelas-preco/${ids.tabela}/itens`, {
+      itens: [{ produtoId: arroz.id, preco: 12.34 }],
+    });
+
+    originais.c9 = await clientePorCodigo('00009');
+    originais.c10 = await clientePorCodigo('00010');
+    // 00009: só do vendedor 07, com tabela e prazo; 00010: só do vendedor 08
+    await salvarCliente(originais.c9, {
+      vendedorIds: [ids.v07],
+      tabelaPrecoId: ids.tabela,
+      prazoIds: [ids.prazo],
+    });
+    await salvarCliente(originais.c10, { vendedorIds: [ids.v08], prazoIds: [] });
+  });
+
+  afterAll(async () => {
+    // devolve os dois clientes para todos os vendedores, sem tabela e prazo de teste
+    for (const c of [originais.c9, originais.c10])
+      if (c)
+        await salvarCliente(c, {
+          vendedorIds: [ids.v07, ids.v08],
+          tabelaPrecoId: null,
+          prazoIds: [],
+        });
+    if (ids.tabela) await adm('PATCH', `/tabelas-preco/${ids.tabela}`, { ativo: false });
+    if (ids.prazo) await adm('PATCH', `/prazos/${ids.prazo}`, { ativo: false });
+  });
+
+  it('carga completa traz só a carteira, com tabela e prazos', async () => {
+    await auth.entrar('vendedor1', 'vend123');
+    await sync.sincronizar(() => undefined);
+    const c9 = m.buscarClientes('Ponto Certo')[0];
+    expect(c9).toMatchObject({
+      tabelaPrecoId: ids.tabela,
+      prazos: [{ id: ids.prazo, descricao: `IT 30 dias ${sufixo}` }],
+    });
+    expect(m.buscarClientes('Distribuidora Sul')).toHaveLength(0);
+    const arroz = m.buscarProdutos('arroz', c9.tabelaPrecoId)[0];
+    expect(arroz.precoUnitario).toBe(12.34);
+    expect(arroz.precoBase).toBe(27.9);
+    expect(m.buscarProdutos('arroz', null)[0].precoUnitario).toBe(27.9);
+  });
+
+  it('boleto com prazo do cliente chega ao portal com o preço da tabela', async () => {
+    const c9 = m.buscarClientes('Ponto Certo')[0];
+    const id = randomUUID();
+    m.salvarPedido({
+      id,
+      cliente: c9,
+      itens: [
+        {
+          produto: m.buscarProdutos('arroz', c9.tabelaPrecoId)[0],
+          tipoEmbalagem: 'UN',
+          quantidade: 2,
+        },
+      ],
+      observacao: '',
+      pagamento: { forma: 'BOLETO', prazoId: ids.prazo, prazoDescricao: `IT 30 dias ${sufixo}` },
+      gerarId: randomUUID,
+    });
+    expect(m.obterPedido(id)!.pedido.valorTotal).toBe(24.68);
+    const r = await sync.sincronizar(() => undefined);
+    expect(r.rejeitados).toEqual([]);
+    const det = await adm<Record<string, unknown> & { itens: { precoUnitario: number }[] }>(
+      'GET',
+      `/pedidos/${id}`,
+    );
+    expect(det).toMatchObject({
+      formaPagamento: 'BOLETO',
+      prazoDescricao: `IT 30 dias ${sufixo}`,
+      valorTotal: 24.68,
+    });
+    expect(det.itens[0].precoUnitario).toBe(12.34);
+  });
+
+  it('cliente que sai da carteira some do celular no próximo sync', async () => {
+    await salvarCliente(originais.c9, {
+      vendedorIds: [ids.v08],
+      tabelaPrecoId: ids.tabela,
+      prazoIds: [ids.prazo],
+    });
+    const r = await sync.sincronizar(() => undefined);
+    expect(r.clientes.removidos).toBe(1);
+    expect(m.buscarClientes('Ponto Certo')).toHaveLength(0);
   });
 });

@@ -7,7 +7,7 @@ import { contem, filtroAtivo, paginar } from '../../lib/paginacao';
 
 const idParams = z.object({ id: z.string().uuid('ID inválido') });
 
-type Modelo = 'supervisor' | 'vendedor' | 'cliente' | 'produto';
+type Modelo = 'supervisor' | 'vendedor' | 'cliente' | 'produto' | 'tabelaPreco' | 'prazoPagamento';
 
 interface OpcoesCrud {
   rota: string;
@@ -24,6 +24,10 @@ interface OpcoesCrud {
   filtroLeitura?: (req: FastifyRequest) => Record<string, unknown>;
   /** Busca personalizada (substitui a busca padrão por camposBusca). */
   montarBusca?: (busca: string) => Record<string, unknown>;
+  /** Converte os dados validados no formato do Prisma (ex.: vínculos N:N). */
+  paraDados?: (dados: Record<string, unknown>, editando: boolean) => Record<string, unknown>;
+  /** Executado depois de criar/alterar/ativar (ex.: marcar clientes para o sync). */
+  aposSalvar?: (registro: { id: string }) => Promise<void>;
   /** Filtros extras aceitos na query string. */
   filtrosExtras?: (query: Record<string, unknown>) => Record<string, unknown>;
 }
@@ -72,19 +76,31 @@ export function registrarCrud(app: FastifyInstance, o: OpcoesCrud) {
 
   app.post(o.rota, escrita, async (req, reply) => {
     const dados = o.schema.parse(req.body);
-    const criado = await delegate.create({ data: dados, include: o.include });
+    const criado = await delegate.create({
+      data: o.paraDados ? o.paraDados(dados, false) : dados,
+      include: o.include,
+    });
+    await o.aposSalvar?.(criado);
     return reply.status(201).send(criado);
   });
 
   app.put(`${o.rota}/:id`, escrita, async (req) => {
     const { id } = idParams.parse(req.params);
     const dados = o.schema.parse(req.body);
-    return delegate.update({ where: { id }, data: dados, include: o.include });
+    const alterado = await delegate.update({
+      where: { id },
+      data: o.paraDados ? o.paraDados(dados, true) : dados,
+      include: o.include,
+    });
+    await o.aposSalvar?.(alterado);
+    return alterado;
   });
 
   app.patch(`${o.rota}/:id`, escrita, async (req) => {
     const { id } = idParams.parse(req.params);
     const { ativo } = ativoSchema.parse(req.body);
-    return delegate.update({ where: { id }, data: { ativo }, include: o.include });
+    const alterado = await delegate.update({ where: { id }, data: { ativo }, include: o.include });
+    await o.aposSalvar?.(alterado);
+    return alterado;
   });
 }

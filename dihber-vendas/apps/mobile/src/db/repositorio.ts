@@ -1,4 +1,11 @@
-import type { ClienteSync, ProdutoSync, StatusPedido, TipoEmbalagem } from '@dihber/shared';
+import type {
+  ClienteSync,
+  FormaPagamento,
+  ProdutoSync,
+  StatusPedido,
+  TabelaPrecoSync,
+  TipoEmbalagem,
+} from '@dihber/shared';
 import { db } from './index';
 import { normalizar } from '../lib/texto';
 import { calcularRascunho, type ItemRascunho } from '../lib/rascunho';
@@ -12,6 +19,14 @@ export interface ClienteLocal {
   telefone: string | null;
   cidade: string | null;
   uf: string | null;
+  tabelaPrecoId: string | null;
+  /** Prazos de boleto permitidos (PIX é sempre permitido). */
+  prazos: PrazoCliente[];
+}
+
+export interface PrazoCliente {
+  id: string;
+  descricao: string;
 }
 
 export interface ProdutoLocal {
@@ -20,7 +35,9 @@ export interface ProdutoLocal {
   descricao: string;
   embalagem: string;
   qtdPorCaixa: number;
+  /** Preço para o cliente: o da tabela dele, ou o preço base. */
   precoUnitario: number;
+  precoBase: number;
   estoque: number | null;
 }
 
@@ -39,6 +56,9 @@ export interface PedidoLocal {
   status: StatusPedido | null;
   motivoReprovacao: string | null;
   motivoCancelamento: string | null;
+  formaPagamento: FormaPagamento | null;
+  prazoId: string | null;
+  prazoDescricao: string | null;
   erroEnvio: string | null;
   enviadoEm: string | null;
 }
@@ -61,37 +81,79 @@ export interface ItemLocal {
 const LIMITE_BUSCA = 60;
 
 /** Monta busca por termos: todos os termos precisam aparecer (código, nome, CNPJ...). */
-function filtroBusca(texto: string) {
+function filtroBusca(texto: string, coluna = 'busca') {
   const termos = normalizar(texto).split(/\s+/).filter(Boolean).slice(0, 5);
   return {
-    where: termos.length ? 'WHERE ' + termos.map(() => 'busca LIKE ?').join(' AND ') : '',
+    where: termos.length ? 'WHERE ' + termos.map(() => `${coluna} LIKE ?`).join(' AND ') : '',
     params: termos.map((t) => `%${t}%`),
   };
 }
 
 // ---------- clientes ----------
+type LinhaCliente = Omit<ClienteLocal, 'prazos'> & { prazos: string };
+const COLUNAS_CLIENTE =
+  'id, codigo, razaoSocial, nomeFantasia, cpfCnpj, telefone, cidade, uf, tabelaPrecoId, prazos';
+
+function lerCliente(l: LinhaCliente): ClienteLocal {
+  let prazos: PrazoCliente[] = [];
+  try {
+    prazos = JSON.parse(l.prazos || '[]');
+  } catch {
+    prazos = [];
+  }
+  return { ...l, prazos };
+}
+
 export function buscarClientes(texto: string): ClienteLocal[] {
   const f = filtroBusca(texto);
-  return db.getAllSync<ClienteLocal>(
-    `SELECT id, codigo, razaoSocial, nomeFantasia, cpfCnpj, telefone, cidade, uf FROM clientes ${f.where} ORDER BY razaoSocial LIMIT ${LIMITE_BUSCA}`,
-    f.params,
-  );
+  return db
+    .getAllSync<LinhaCliente>(
+      `SELECT ${COLUNAS_CLIENTE} FROM clientes ${f.where} ORDER BY razaoSocial LIMIT ${LIMITE_BUSCA}`,
+      f.params,
+    )
+    .map(lerCliente);
+}
+
+export function obterCliente(id: string): ClienteLocal | null {
+  const l = db.getFirstSync<LinhaCliente>(`SELECT ${COLUNAS_CLIENTE} FROM clientes WHERE id = ?`, [
+    id,
+  ]);
+  return l ? lerCliente(l) : null;
 }
 
 export function contarClientes(): number {
   return db.getFirstSync<{ n: number }>('SELECT COUNT(*) n FROM clientes')?.n ?? 0;
 }
 
-/** Aplica o delta de clientes. Retorna quantos foram adicionados, alterados e removidos. */
-export function aplicarClientes(lista: ClienteSync[]) {
+/**
+ * Aplica o delta de clientes. `removidos` = saíram da carteira. Na carga completa
+ * (`substituir`), apaga do celular quem não veio na lista.
+ */
+export function aplicarClientes(
+  lista: ClienteSync[],
+  removidos: string[] = [],
+  substituir = false,
+) {
   const r = { novos: 0, alterados: 0, removidos: 0 };
+  if (substituir) {
+    const manter = new Set(lista.filter((c) => c.ativo).map((c) => c.id));
+    const atuais = db.getAllSync<{ id: string }>('SELECT id FROM clientes');
+    removidos = [...removidos, ...atuais.map((c) => c.id).filter((id) => !manter.has(id))];
+  }
+  if (removidos.length) {
+    db.withTransactionSync(() => {
+      for (const id of new Set(removidos))
+        r.removidos += db.runSync('DELETE FROM clientes WHERE id = ?', [id]).changes;
+    });
+  }
   if (!lista.length) return r;
   const existe = db.prepareSync('SELECT 1 FROM clientes WHERE id = ?');
   const upsert = db.prepareSync(
-    `INSERT INTO clientes (id, codigo, razaoSocial, nomeFantasia, cpfCnpj, telefone, cidade, uf, busca)
-     VALUES ($id, $codigo, $razaoSocial, $nomeFantasia, $cpfCnpj, $telefone, $cidade, $uf, $busca)
+    `INSERT INTO clientes (id, codigo, razaoSocial, nomeFantasia, cpfCnpj, telefone, cidade, uf, tabelaPrecoId, prazos, busca)
+     VALUES ($id, $codigo, $razaoSocial, $nomeFantasia, $cpfCnpj, $telefone, $cidade, $uf, $tabelaPrecoId, $prazos, $busca)
      ON CONFLICT(id) DO UPDATE SET codigo=excluded.codigo, razaoSocial=excluded.razaoSocial, nomeFantasia=excluded.nomeFantasia,
-       cpfCnpj=excluded.cpfCnpj, telefone=excluded.telefone, cidade=excluded.cidade, uf=excluded.uf, busca=excluded.busca`,
+       cpfCnpj=excluded.cpfCnpj, telefone=excluded.telefone, cidade=excluded.cidade, uf=excluded.uf,
+       tabelaPrecoId=excluded.tabelaPrecoId, prazos=excluded.prazos, busca=excluded.busca`,
   );
   const remover = db.prepareSync('DELETE FROM clientes WHERE id = ?');
   try {
@@ -114,6 +176,8 @@ export function aplicarClientes(lista: ClienteSync[]) {
           $telefone: c.telefone,
           $cidade: c.cidade,
           $uf: c.uf,
+          $tabelaPrecoId: c.tabelaPrecoId ?? null,
+          $prazos: JSON.stringify(c.prazos ?? []),
           $busca: normalizar(
             [c.codigo, c.razaoSocial, c.nomeFantasia, c.cpfCnpj, c.cidade]
               .filter(Boolean)
@@ -132,20 +196,66 @@ export function aplicarClientes(lista: ClienteSync[]) {
 }
 
 // ---------- produtos ----------
-export function buscarProdutos(texto: string): ProdutoLocal[] {
-  const f = filtroBusca(texto);
+/** Busca produtos já com o preço do cliente (tabela dele; sem preço na tabela = preço base). */
+export function buscarProdutos(texto: string, tabelaPrecoId: string | null = null): ProdutoLocal[] {
+  const f = filtroBusca(texto, 'p.busca');
   return db.getAllSync<ProdutoLocal>(
-    `SELECT id, codigo, descricao, embalagem, qtdPorCaixa, precoUnitario, estoque FROM produtos ${f.where} ORDER BY descricao LIMIT ${LIMITE_BUSCA}`,
-    f.params,
+    `SELECT p.id, p.codigo, p.descricao, p.embalagem, p.qtdPorCaixa, p.estoque,
+            COALESCE(t.preco, p.precoUnitario) AS precoUnitario, p.precoUnitario AS precoBase
+       FROM produtos p
+       LEFT JOIN precos_tabela t ON t.tabelaId = ? AND t.produtoId = p.id
+       ${f.where}
+      ORDER BY p.descricao LIMIT ${LIMITE_BUSCA}`,
+    [tabelaPrecoId, ...f.params],
   );
+}
+
+/** Preço de um produto para a tabela do cliente (null = produto não existe mais no celular). */
+export function precoProduto(produtoId: string, tabelaPrecoId: string | null): number | null {
+  const r = db.getFirstSync<{ preco: number }>(
+    `SELECT COALESCE(t.preco, p.precoUnitario) AS preco FROM produtos p
+       LEFT JOIN precos_tabela t ON t.tabelaId = ? AND t.produtoId = p.id
+      WHERE p.id = ?`,
+    [tabelaPrecoId, produtoId],
+  );
+  return r?.preco ?? null;
+}
+
+/** Substitui as tabelas de preço recebidas (inativa = removida). */
+export function aplicarTabelasPreco(lista: TabelaPrecoSync[], substituir = false) {
+  db.withTransactionSync(() => {
+    if (substituir) db.runSync('DELETE FROM precos_tabela');
+    for (const t of lista) {
+      db.runSync('DELETE FROM precos_tabela WHERE tabelaId = ?', [t.id]);
+      if (!t.ativo) continue;
+      for (const i of t.itens) {
+        db.runSync('INSERT INTO precos_tabela (tabelaId, produtoId, preco) VALUES (?, ?, ?)', [
+          t.id,
+          i.produtoId,
+          i.preco,
+        ]);
+      }
+    }
+  });
+  return lista.length;
 }
 
 export function contarProdutos(): number {
   return db.getFirstSync<{ n: number }>('SELECT COUNT(*) n FROM produtos')?.n ?? 0;
 }
 
-export function aplicarProdutos(lista: ProdutoSync[]) {
+export function aplicarProdutos(lista: ProdutoSync[], substituir = false) {
   const r = { novos: 0, alterados: 0, removidos: 0 };
+  if (substituir) {
+    const manter = new Set(lista.filter((p) => p.ativo).map((p) => p.id));
+    const sobrando = db
+      .getAllSync<{ id: string }>('SELECT id FROM produtos')
+      .filter((p) => !manter.has(p.id));
+    db.withTransactionSync(() => {
+      for (const p of sobrando)
+        r.removidos += db.runSync('DELETE FROM produtos WHERE id = ?', [p.id]).changes;
+    });
+  }
   if (!lista.length) return r;
   const existe = db.prepareSync('SELECT 1 FROM produtos WHERE id = ?');
   const upsert = db.prepareSync(
@@ -227,6 +337,12 @@ export interface SalvarPedidoDados {
   cliente: ClienteLocal;
   itens: ItemRascunho[];
   observacao: string;
+  /** Forma de pagamento escolhida (ausente só em pedidos antigos). */
+  pagamento?: {
+    forma: FormaPagamento;
+    prazoId: string | null;
+    prazoDescricao: string | null;
+  } | null;
   criadoNoAppEm?: string;
   gerarId: () => string;
 }
@@ -244,10 +360,11 @@ export function salvarPedido(d: SalvarPedidoDados) {
   db.withTransactionSync(() => {
     db.runSync('DELETE FROM pedido_itens WHERE pedidoId = ?', [d.id]);
     db.runSync(
-      `INSERT INTO pedidos (id, clienteId, clienteNome, clienteCodigo, observacao, valorTotal, criadoNoAppEm, situacao, erroEnvio)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'NAO_ENVIADO', NULL)
+      `INSERT INTO pedidos (id, clienteId, clienteNome, clienteCodigo, observacao, valorTotal, criadoNoAppEm, formaPagamento, prazoId, prazoDescricao, situacao, erroEnvio)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NAO_ENVIADO', NULL)
        ON CONFLICT(id) DO UPDATE SET clienteId=excluded.clienteId, clienteNome=excluded.clienteNome, clienteCodigo=excluded.clienteCodigo,
-         observacao=excluded.observacao, valorTotal=excluded.valorTotal, erroEnvio=NULL`,
+         observacao=excluded.observacao, valorTotal=excluded.valorTotal, formaPagamento=excluded.formaPagamento,
+         prazoId=excluded.prazoId, prazoDescricao=excluded.prazoDescricao, erroEnvio=NULL`,
       [
         d.id,
         d.cliente.id,
@@ -256,6 +373,9 @@ export function salvarPedido(d: SalvarPedidoDados) {
         d.observacao.trim() || null,
         total,
         existente?.criadoNoAppEm ?? d.criadoNoAppEm ?? new Date().toISOString(),
+        d.pagamento?.forma ?? null,
+        d.pagamento?.forma === 'BOLETO' ? d.pagamento.prazoId : null,
+        d.pagamento?.forma === 'BOLETO' ? d.pagamento.prazoDescricao : null,
       ],
     );
     for (const i of itens) {

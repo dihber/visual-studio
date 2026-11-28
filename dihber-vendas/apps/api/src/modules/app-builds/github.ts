@@ -42,9 +42,12 @@ export async function dispararWorkflow(buildId: string, callbackUrl: string) {
   );
   if (r.status === 204) return;
   const msg = await lerErro(r);
-  if (r.status === 401) throw new Error('O GitHub recusou o GITHUB_TOKEN_APK (inválido ou expirado).');
+  if (r.status === 401)
+    throw new Error('O GitHub recusou o GITHUB_TOKEN_APK (inválido ou expirado).');
   if (r.status === 403)
-    throw new Error('O GITHUB_TOKEN_APK não tem permissão "Actions: Read and write" no repositório.');
+    throw new Error(
+      'O GITHUB_TOKEN_APK não tem permissão "Actions: Read and write" no repositório.',
+    );
   if (r.status === 404)
     throw new Error(
       `Workflow ${WORKFLOW_ARQUIVO} não encontrado no branch padrão do repositório ${repo} (${msg}).`,

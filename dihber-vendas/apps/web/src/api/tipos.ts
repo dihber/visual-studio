@@ -38,6 +38,37 @@ export interface Cliente {
   cidade: string | null;
   uf: string | null;
   ativo: boolean;
+  tabelaPrecoId: string | null;
+  tabelaPreco: { id: string; codigo: string; nome: string } | null;
+  vendedores: { vendedor: { id: string; codigo: string; nome: string } }[];
+  prazos: { prazo: { id: string; codigo: string; descricao: string; ativo: boolean } }[];
+}
+
+export interface TabelaPreco {
+  id: string;
+  codigo: string;
+  nome: string;
+  cidade: string | null;
+  uf: string | null;
+  ativo: boolean;
+  _count?: { itens: number; clientes: number };
+}
+
+export interface ItemTabelaPreco {
+  produtoId: string;
+  codigo: string;
+  descricao: string;
+  embalagem: string;
+  precoBase: number;
+  preco: number | null;
+}
+
+export interface PrazoPagamento {
+  id: string;
+  codigo: string;
+  descricao: string;
+  ativo: boolean;
+  _count?: { clientes: number };
 }
 
 export interface Produto {
@@ -94,6 +125,8 @@ export interface PedidoLista {
 
 export interface PedidoDetalhe extends Omit<PedidoLista, '_count' | 'cliente' | 'dispositivo'> {
   observacao: string | null;
+  formaPagamento: 'PIX' | 'BOLETO' | null;
+  prazoDescricao: string | null;
   motivoReprovacao: string | null;
   avaliadoEm: string | null;
   avaliadoPor: { id: string; nome: string } | null;

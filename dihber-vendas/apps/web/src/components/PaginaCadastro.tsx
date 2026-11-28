@@ -20,7 +20,9 @@ export type Valores = Record<string, unknown>;
 export interface CampoForm {
   nome: string;
   label: string;
-  tipo?: 'texto' | 'email' | 'numero' | 'decimal' | 'senha' | 'select' | 'ativo';
+  tipo?: 'texto' | 'email' | 'numero' | 'decimal' | 'senha' | 'select' | 'multi' | 'ativo';
+  /** Texto da opção vazia do select (padrão "Selecione..."). */
+  vazio?: string;
   opcoes?: { valor: string; label: string }[];
   obrigatorio?: boolean;
   placeholder?: string;
@@ -42,6 +44,8 @@ interface Props<T extends { id: string; ativo: boolean }> {
   subtitulo?: string;
   endpoint: string;
   nomeItem: string;
+  /** 'f' para palavras femininas ("Nova tabela"). */
+  genero?: 'm' | 'f';
   colunas: Coluna<T>[];
   campos: CampoForm[];
   schemaCriar: ZodTypeAny;
@@ -135,7 +139,7 @@ export function PaginaCadastro<T extends { id: string; ativo: boolean }>(p: Prop
         </div>
         {ehAdmin && (
           <Button onClick={() => abrir(null)}>
-            <Plus className="h-4 w-4" /> Novo {p.nomeItem}
+            <Plus className="h-4 w-4" /> {p.genero === 'f' ? 'Nova' : 'Novo'} {p.nomeItem}
           </Button>
         )}
       </div>
@@ -249,7 +253,7 @@ export function PaginaCadastro<T extends { id: string; ativo: boolean }>(p: Prop
       <Dialog
         aberto={aberto}
         aoFechar={() => setAberto(false)}
-        titulo={editando ? `Editar ${p.nomeItem}` : `Novo ${p.nomeItem}`}
+        titulo={editando ? `Editar ${p.nomeItem}` : `${p.genero === 'f' ? 'Nova' : 'Novo'} ${p.nomeItem}`}
         largura="max-w-2xl"
         rodape={
           <>
@@ -307,6 +311,19 @@ function CampoFormulario({
       </div>
     );
   }
+  if (c.tipo === 'multi') {
+    return (
+      <Campo label={c.label} erro={erro} obrigatorio={c.obrigatorio} className={span}>
+        <MultiSelecao
+          opcoes={c.opcoes ?? []}
+          valor={Array.isArray(valor) ? (valor as string[]) : []}
+          aoMudar={aoMudar}
+          vazio={c.vazio}
+        />
+        {c.ajuda && !erro && <p className="mt-1 text-xs text-slate-500">{c.ajuda}</p>}
+      </Campo>
+    );
+  }
   return (
     <Campo label={c.label} erro={erro} obrigatorio={c.obrigatorio} className={span}>
       {c.tipo === 'select' ? (
@@ -315,7 +332,7 @@ function CampoFormulario({
           onChange={(e) => aoMudar(e.target.value)}
           aria-invalid={!!erro}
         >
-          <option value="">Selecione...</option>
+          <option value="">{c.vazio ?? 'Selecione...'}</option>
           {c.opcoes?.map((o) => (
             <option key={o.valor} value={o.valor}>
               {o.label}
@@ -345,5 +362,61 @@ function CampoFormulario({
       )}
       {c.ajuda && !erro && <p className="mt-1 text-xs text-slate-500">{c.ajuda}</p>}
     </Campo>
+  );
+}
+
+/** Lista de caixas de seleção com busca (ex.: vendedores do cliente). */
+function MultiSelecao({
+  opcoes,
+  valor,
+  aoMudar,
+  vazio,
+}: {
+  opcoes: { valor: string; label: string }[];
+  valor: string[];
+  aoMudar: (v: string[]) => void;
+  vazio?: string;
+}) {
+  const [filtro, setFiltro] = useState('');
+  const marcados = new Set(valor);
+  const visiveis = opcoes.filter((o) =>
+    o.label.toLowerCase().includes(filtro.trim().toLowerCase()),
+  );
+  const alternar = (id: string) =>
+    aoMudar(marcados.has(id) ? valor.filter((v) => v !== id) : [...valor, id]);
+  return (
+    <div className="rounded-md border border-slate-300 bg-white shadow-sm">
+      {opcoes.length > 6 && (
+        <input
+          className="w-full border-b border-slate-200 px-3 py-2 text-sm outline-none"
+          placeholder="Filtrar..."
+          value={filtro}
+          onChange={(e) => setFiltro(e.target.value)}
+        />
+      )}
+      <div className="max-h-40 overflow-y-auto p-2">
+        {opcoes.length === 0 ? (
+          <p className="px-1 py-1 text-sm text-slate-400">{vazio ?? 'Nenhuma opção cadastrada'}</p>
+        ) : (
+          visiveis.map((o) => (
+            <label
+              key={o.valor}
+              className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-slate-50"
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-blue-600"
+                checked={marcados.has(o.valor)}
+                onChange={() => alternar(o.valor)}
+              />
+              {o.label}
+            </label>
+          ))
+        )}
+      </div>
+      <p className="border-t border-slate-100 px-3 py-1 text-xs text-slate-500">
+        {valor.length} selecionado(s)
+      </p>
+    </div>
   );
 }

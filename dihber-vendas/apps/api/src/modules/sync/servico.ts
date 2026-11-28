@@ -6,6 +6,7 @@ import {
   type ProdutoSync,
   type SyncDadosResposta,
   type SyncPedidosResposta,
+  type TabelaPrecoSync,
 } from '@dihber/shared';
 import { Prisma, prisma } from '../../lib/prisma';
 
@@ -45,20 +46,48 @@ export async function receberPedidos(
         continue;
       }
 
-      const cliente = await prisma.cliente.findUnique({ where: { id: p.clienteId } });
+      const cliente = await prisma.cliente.findUnique({
+        where: { id: p.clienteId },
+        include: {
+          vendedores: { where: { vendedorId }, select: { vendedorId: true } },
+          tabelaPreco: true,
+        },
+      });
       if (!cliente) throw new ErroPedido('Cliente não encontrado');
       if (!cliente.ativo) throw new ErroPedido(`Cliente inativo: ${cliente.razaoSocial}`);
+      if (cliente.vendedores.length === 0)
+        throw new ErroPedido(`Cliente fora da sua carteira: ${cliente.razaoSocial}`);
+
+      // forma de pagamento: PIX sempre; boleto só com prazo vinculado ao cliente
+      let prazoDescricao: string | null = null;
+      if (p.formaPagamento === 'BOLETO') {
+        const vinculo = await prisma.clientePrazo.findUnique({
+          where: { clienteId_prazoId: { clienteId: cliente.id, prazoId: p.prazoPagamentoId! } },
+          include: { prazo: true },
+        });
+        if (!vinculo || !vinculo.prazo.ativo)
+          throw new ErroPedido(`Prazo de pagamento não permitido para ${cliente.razaoSocial}`);
+        prazoDescricao = vinculo.prazo.descricao;
+      }
 
       const idsProdutos = [...new Set(p.itens.map((i) => i.produtoId))];
       const produtos = await prisma.produto.findMany({ where: { id: { in: idsProdutos } } });
       const porId = new Map(produtos.map((x) => [x.id, x]));
+      // preço da tabela do cliente (se ativa); produto fora da tabela usa o preço base
+      const precosTabela = new Map<string, number>();
+      if (cliente.tabelaPreco?.ativo) {
+        const itensTabela = await prisma.tabelaPrecoItem.findMany({
+          where: { tabelaPrecoId: cliente.tabelaPreco.id, produtoId: { in: idsProdutos } },
+        });
+        for (const it of itensTabela) precosTabela.set(it.produtoId, it.preco.toNumber());
+      }
 
       const itens = p.itens.map((i) => {
         const prod = porId.get(i.produtoId);
         if (!prod) throw new ErroPedido('Produto não encontrado');
         if (!prod.ativo)
           throw new ErroPedido(`Produto inativo: ${prod.codigo} - ${prod.descricao}`);
-        const preco = prod.precoUnitario.toNumber();
+        const preco = precosTabela.get(prod.id) ?? prod.precoUnitario.toNumber();
         const calc = calcularItem({
           tipoEmbalagem: i.tipoEmbalagem,
           quantidade: i.quantidade,
@@ -86,6 +115,9 @@ export async function receberPedidos(
           observacao: p.observacao?.trim() || null,
           criadoNoAppEm: new Date(p.criadoNoAppEm),
           valorTotal: new Prisma.Decimal(total.toFixed(2)),
+          formaPagamento: p.formaPagamento ?? null,
+          prazoPagamentoId: p.formaPagamento === 'BOLETO' ? p.prazoPagamentoId : null,
+          prazoDescricao,
           itens: { create: itens.map(({ _valor, ...i }) => i) },
         },
         select: { id: true, numero: true },
@@ -113,17 +145,32 @@ export async function receberPedidos(
 /**
  * Sincronização incremental (delta): devolve registros com updatedAt >= desde.
  * Sem "desde" (primeiro login) faz carga completa, apenas de registros ativos.
+ * Clientes: só os da carteira do vendedor; os que saíram dela vão em clientesRemovidos.
  */
 export async function montarDados(vendedorId: string, desde?: string): Promise<SyncDadosResposta> {
   // capturado ANTES das consultas para não perder alterações feitas durante o sync
   const servidorAgora = new Date();
-  const filtro = desde ? { updatedAt: { gte: new Date(desde) } } : { ativo: true };
+  const desdeData = desde ? new Date(desde) : null;
+  const filtro = desdeData ? { updatedAt: { gte: desdeData } } : { ativo: true };
 
   const [clientes, produtos, pedidos] = await Promise.all([
-    prisma.cliente.findMany({ where: filtro, orderBy: { razaoSocial: 'asc' } }),
+    prisma.cliente.findMany({
+      where: desdeData
+        ? { updatedAt: { gte: desdeData } }
+        : { ativo: true, vendedores: { some: { vendedorId } } },
+      include: {
+        vendedores: { where: { vendedorId }, select: { vendedorId: true } },
+        prazos: {
+          where: { prazo: { ativo: true } },
+          select: { prazo: { select: { id: true, descricao: true } } },
+          orderBy: { prazo: { descricao: 'asc' } },
+        },
+      },
+      orderBy: { razaoSocial: 'asc' },
+    }),
     prisma.produto.findMany({ where: filtro, orderBy: { descricao: 'asc' } }),
     prisma.pedido.findMany({
-      where: { vendedorId, ...(desde ? { updatedAt: { gte: new Date(desde) } } : {}) },
+      where: { vendedorId, ...(desdeData ? { updatedAt: { gte: desdeData } } : {}) },
       select: {
         id: true,
         numero: true,
@@ -132,13 +179,38 @@ export async function montarDados(vendedorId: string, desde?: string): Promise<S
         motivoCancelamento: true,
       },
       orderBy: { numero: 'desc' },
-      take: desde ? undefined : 500,
+      take: desdeData ? undefined : 500,
     }),
   ]);
 
+  const naCarteira = clientes.filter((c) => c.vendedores.length > 0);
+  const clientesRemovidos = clientes.filter((c) => c.vendedores.length === 0).map((c) => c.id);
+
+  // tabelas de preço: as dos clientes enviados agora + as alteradas desde o último sync
+  // que pertencem a algum cliente da carteira
+  const idsTabelas = new Set(
+    naCarteira.map((c) => c.tabelaPrecoId).filter((x): x is string => !!x),
+  );
+  if (desdeData) {
+    const alteradas = await prisma.tabelaPreco.findMany({
+      where: {
+        updatedAt: { gte: desdeData },
+        clientes: { some: { vendedores: { some: { vendedorId } } } },
+      },
+      select: { id: true },
+    });
+    for (const t of alteradas) idsTabelas.add(t.id);
+  }
+  const tabelas = idsTabelas.size
+    ? await prisma.tabelaPreco.findMany({
+        where: { id: { in: [...idsTabelas] } },
+        include: { itens: { select: { produtoId: true, preco: true } } },
+      })
+    : [];
+
   return {
     servidorAgora: servidorAgora.toISOString(),
-    clientes: clientes.map((c): ClienteSync => ({
+    clientes: naCarteira.map((c): ClienteSync => ({
       id: c.id,
       codigo: c.codigo,
       razaoSocial: c.razaoSocial,
@@ -148,8 +220,11 @@ export async function montarDados(vendedorId: string, desde?: string): Promise<S
       cidade: c.cidade,
       uf: c.uf,
       ativo: c.ativo,
+      tabelaPrecoId: c.tabelaPrecoId,
+      prazos: c.prazos.map((x) => x.prazo),
       updatedAt: c.updatedAt.toISOString(),
     })),
+    clientesRemovidos,
     produtos: produtos.map((x): ProdutoSync => ({
       id: x.id,
       codigo: x.codigo,
@@ -160,6 +235,11 @@ export async function montarDados(vendedorId: string, desde?: string): Promise<S
       estoque: x.estoque?.toNumber() ?? null,
       ativo: x.ativo,
       updatedAt: x.updatedAt.toISOString(),
+    })),
+    tabelasPreco: tabelas.map((t): TabelaPrecoSync => ({
+      id: t.id,
+      ativo: t.ativo,
+      itens: t.itens.map((i) => ({ produtoId: i.produtoId, preco: i.preco.toNumber() })),
     })),
     statusPedidos: pedidos,
   };

@@ -11,6 +11,8 @@ import { PedidoDetalhe } from '@/pages/PedidoDetalhe';
 import { VendasEquipe } from '@/pages/VendasEquipe';
 import { Clientes } from '@/pages/Clientes';
 import { Produtos } from '@/pages/Produtos';
+import { TabelasPreco } from '@/pages/TabelasPreco';
+import { Prazos } from '@/pages/Prazos';
 import { Vendedores } from '@/pages/Vendedores';
 import { Supervisores } from '@/pages/Supervisores';
 import { Usuarios } from '@/pages/Usuarios';
@@ -39,6 +41,22 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/vendas-equipe" element={<VendasEquipe />} />
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/produtos" element={<Produtos />} />
+              <Route
+                path="/tabelas-preco"
+                element={
+                  <SomenteAdmin>
+                    <TabelasPreco />
+                  </SomenteAdmin>
+                }
+              />
+              <Route
+                path="/prazos"
+                element={
+                  <SomenteAdmin>
+                    <Prazos />
+                  </SomenteAdmin>
+                }
+              />
               <Route
                 path="/vendedores"
                 element={

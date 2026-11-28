@@ -9,6 +9,8 @@ import {
   UserCog,
   Users,
   UsersRound,
+  CalendarClock,
+  Tags,
 } from 'lucide-react';
 import { useState } from 'react';
 import { PERFIL_LABEL } from '@dihber/shared';
@@ -25,6 +27,8 @@ const MENU = [
   },
   { para: '/clientes', label: 'Clientes', icone: Store, perfis: ['ADMIN', 'SUPERVISOR'] },
   { para: '/produtos', label: 'Produtos', icone: Boxes, perfis: ['ADMIN', 'SUPERVISOR'] },
+  { para: '/tabelas-preco', label: 'Tabelas de preço', icone: Tags, perfis: ['ADMIN'] },
+  { para: '/prazos', label: 'Prazos', icone: CalendarClock, perfis: ['ADMIN'] },
   { para: '/vendedores', label: 'Vendedores', icone: Users, perfis: ['ADMIN'] },
   { para: '/supervisores', label: 'Supervisores', icone: UsersRound, perfis: ['ADMIN'] },
   { para: '/usuarios', label: 'Usuários', icone: UserCog, perfis: ['ADMIN'] },

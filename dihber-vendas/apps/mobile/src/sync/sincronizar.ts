@@ -5,6 +5,7 @@ import { gravarMeta, lerMeta } from '../db';
 import {
   aplicarClientes,
   aplicarProdutos,
+  aplicarTabelasPreco,
   atualizarStatusPedidos,
   marcarEnviado,
   marcarErroEnvio,
@@ -90,6 +91,8 @@ async function executar(aoAtualizar: (etapas: Etapa[]) => void): Promise<Resulta
         observacao: pedido.observacao,
         criadoNoAppEm: pedido.criadoNoAppEm,
         valorTotal: pedido.valorTotal,
+        formaPagamento: pedido.formaPagamento ?? undefined,
+        prazoPagamentoId: pedido.formaPagamento === 'BOLETO' ? pedido.prazoId : undefined,
         itens: itens.map((it) => ({
           produtoId: it.produtoId,
           tipoEmbalagem: it.tipoEmbalagem,
@@ -123,10 +126,13 @@ async function executar(aoAtualizar: (etapas: Etapa[]) => void): Promise<Resulta
     const q = new URLSearchParams({ deviceId: dispositivo.deviceId, ...(desde ? { desde } : {}) });
     const dados = await api<SyncDadosResposta>(`/sync/dados?${q.toString()}`);
 
-    resultado.clientes = aplicarClientes(dados.clientes);
+    // sem "desde" é carga completa: o que não veio sai do celular (ex.: fora da carteira)
+    const completa = !desde;
+    resultado.clientes = aplicarClientes(dados.clientes, dados.clientesRemovidos ?? [], completa);
     atualizar('clientes', 'ok', `Clientes: ${resumoDelta(resultado.clientes)}`);
     atual = 'produtos';
-    resultado.produtos = aplicarProdutos(dados.produtos);
+    resultado.produtos = aplicarProdutos(dados.produtos, completa);
+    aplicarTabelasPreco(dados.tabelasPreco ?? [], completa);
     atualizar('produtos', 'ok', `Produtos: ${resumoDelta(resultado.produtos)}`);
     atual = 'status';
     resultado.statusAtualizados = atualizarStatusPedidos(dados.statusPedidos);

@@ -19,3 +19,16 @@ export const STATUS_PEDIDO_LABEL: Record<StatusPedido, string> = {
   REPROVADO: 'Reprovado',
   CANCELADO: 'Cancelado',
 };
+
+export const FORMAS_PAGAMENTO = ['PIX', 'BOLETO'] as const;
+export type FormaPagamento = (typeof FORMAS_PAGAMENTO)[number];
+
+/** Texto da forma de pagamento do pedido (ex.: "PIX", "Boleto 30/60 dias"). */
+export function textoPagamento(
+  forma: FormaPagamento | null | undefined,
+  prazoDescricao?: string | null,
+): string {
+  if (forma === 'PIX') return 'PIX';
+  if (forma === 'BOLETO') return prazoDescricao ? `Boleto ${prazoDescricao}` : 'Boleto';
+  return 'Não informado';
+}

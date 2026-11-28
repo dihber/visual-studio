@@ -64,6 +64,22 @@ const MIGRACOES: string[] = [
   `,
   // v2: motivo do cancelamento feito no portal
   `ALTER TABLE pedidos ADD COLUMN motivoCancelamento TEXT;`,
+  // v3: carteira, tabela de preço e forma de pagamento. Zera o "desde" para o próximo
+  // sync fazer carga completa (os clientes precisam vir com tabela e prazos).
+  `
+  ALTER TABLE clientes ADD COLUMN tabelaPrecoId TEXT;
+  ALTER TABLE clientes ADD COLUMN prazos TEXT NOT NULL DEFAULT '[]';
+  CREATE TABLE IF NOT EXISTS precos_tabela (
+    tabelaId TEXT NOT NULL,
+    produtoId TEXT NOT NULL,
+    preco REAL NOT NULL,
+    PRIMARY KEY (tabelaId, produtoId)
+  );
+  ALTER TABLE pedidos ADD COLUMN formaPagamento TEXT;
+  ALTER TABLE pedidos ADD COLUMN prazoId TEXT;
+  ALTER TABLE pedidos ADD COLUMN prazoDescricao TEXT;
+  DELETE FROM meta WHERE chave = 'desde';
+  `,
 ];
 
 export function migrarBanco() {
@@ -95,7 +111,7 @@ export function gravarMeta(chave: string, valor: string | null) {
 export function limparDadosLocais() {
   db.withTransactionSync(() => {
     db.execSync(
-      'DELETE FROM pedido_itens; DELETE FROM pedidos; DELETE FROM clientes; DELETE FROM produtos; DELETE FROM meta;',
+      'DELETE FROM pedido_itens; DELETE FROM pedidos; DELETE FROM clientes; DELETE FROM produtos; DELETE FROM precos_tabela; DELETE FROM meta;',
     );
   });
 }

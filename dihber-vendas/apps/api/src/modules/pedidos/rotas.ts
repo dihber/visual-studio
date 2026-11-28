@@ -7,6 +7,7 @@ import {
   pedidosQuerySchema,
   reprovarSchema,
   STATUS_PEDIDO_LABEL,
+  textoPagamento,
 } from '@dihber/shared';
 import { prisma } from '../../lib/prisma';
 import { ErroHttp, naoEncontrado } from '../../lib/erros';
@@ -135,6 +136,7 @@ export async function rotasPedidos(app: FastifyInstance) {
         'Vendedor',
         'Supervisor',
         'Celular',
+        'Pagamento',
         'Produto (código)',
         'Produto',
         'Tipo',
@@ -161,6 +163,7 @@ export async function rotasPedidos(app: FastifyInstance) {
           p.vendedor.nome,
           p.vendedor.supervisor?.nome ?? '',
           p.dispositivo.modelo ?? '',
+          textoPagamento(p.formaPagamento, p.prazoDescricao),
           i.produto.codigo,
           i.produto.descricao,
           i.tipoEmbalagem,

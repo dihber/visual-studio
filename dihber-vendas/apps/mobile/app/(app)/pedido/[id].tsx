@@ -1,7 +1,12 @@
 import { useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { formatarDataHora, formatarMoeda, formatarQuantidade } from '@dihber/shared';
+import {
+  formatarDataHora,
+  formatarMoeda,
+  formatarQuantidade,
+  textoPagamento,
+} from '@dihber/shared';
 import { useRascunho } from '../../../src/contexto/Rascunho';
 import { excluirPedido, obterPedido } from '../../../src/db/repositorio';
 import { Botao, Cartao, SeloStatus, Vazio } from '../../../src/components/ui';
@@ -50,6 +55,9 @@ export default function DetalhePedido() {
           <Text style={st.info}>Código do cliente: {p.clienteCodigo}</Text>
           <Text style={st.info}>Feito em: {formatarDataHora(p.criadoNoAppEm)}</Text>
           {p.enviadoEm && <Text style={st.info}>Enviado em: {formatarDataHora(p.enviadoEm)}</Text>}
+          <Text style={st.info}>
+            Pagamento: {textoPagamento(p.formaPagamento, p.prazoDescricao)}
+          </Text>
           {!!p.observacao && <Text style={st.info}>Obs.: {p.observacao}</Text>}
         </Cartao>
 

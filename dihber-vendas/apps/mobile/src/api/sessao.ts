@@ -54,7 +54,8 @@ export async function dadosDispositivo(): Promise<DispositivoInput> {
     modelo,
     // No Android, Device.osName pode trazer o "fingerprint" interno do sistema
     // (ex.: samsung/beyond0ltexx/...). Mostramos só "Android 12" / "iOS 18.1".
-    sistema: `${Platform.OS === 'android' ? 'Android' : (Device.osName ?? 'iOS')} ${Device.osVersion ?? ''}`.trim(),
+    sistema:
+      `${Platform.OS === 'android' ? 'Android' : (Device.osName ?? 'iOS')} ${Device.osVersion ?? ''}`.trim(),
     appVersao: APP_VERSAO,
   };
 }

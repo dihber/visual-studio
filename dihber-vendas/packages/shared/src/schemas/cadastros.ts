@@ -7,6 +7,16 @@ import { emailOpcional, textoOpcional } from './comum';
 /** '' → ausente (Campo obrigatório); texto não numérico → NaN (Informe um número válido). */
 const numero = (v: unknown) => (v === '' || v === null || v === undefined ? undefined : Number(v));
 
+const uuidOpcional = z.preprocess(
+  (v) => (v === '' || v === undefined ? null : v),
+  z.string().uuid().nullable(),
+);
+const listaIds = z
+  .array(z.string().uuid())
+  .max(1000)
+  .default([])
+  .transform((l) => [...new Set(l)]);
+
 const codigo = z.string().trim().min(1, 'Informe o código').max(30);
 const nome = z.string().trim().min(2, 'Informe o nome').max(150);
 
@@ -43,6 +53,12 @@ export const clienteSchema = z.object({
     z.string().length(2, 'UF deve ter 2 letras').optional(),
   ),
   ativo: z.boolean().default(true),
+  /** Tabela de preço do cliente (vazio = preço base do produto). */
+  tabelaPrecoId: uuidOpcional,
+  /** Carteira: vendedores que podem vender para o cliente. */
+  vendedorIds: listaIds,
+  /** Prazos de boleto permitidos (PIX é sempre permitido). */
+  prazoIds: listaIds,
 });
 export type ClienteInput = z.infer<typeof clienteSchema>;
 
@@ -106,3 +122,37 @@ function normalizarVinculo<T extends UsuarioBase>(u: T): T {
     supervisorId: u.perfil === 'SUPERVISOR' ? u.supervisorId : null,
   };
 }
+
+export const tabelaPrecoSchema = z.object({
+  codigo,
+  nome: z.string().trim().min(2, 'Informe o nome').max(100),
+  cidade: textoOpcional,
+  uf: z.preprocess(
+    (v) => (v === '' || v === null ? undefined : typeof v === 'string' ? v.toUpperCase() : v),
+    z.string().length(2, 'UF deve ter 2 letras').optional(),
+  ),
+  ativo: z.boolean().default(true),
+});
+export type TabelaPrecoInput = z.infer<typeof tabelaPrecoSchema>;
+
+/** Alteração de preços de uma tabela: preco null remove o produto da tabela (volta ao preço base). */
+export const tabelaPrecoItensSchema = z.object({
+  itens: z
+    .array(
+      z.object({
+        produtoId: z.string().uuid(),
+        preco: z.preprocess(
+          (v) => (v === '' || v === undefined ? null : v),
+          z.number().min(0, 'Preço inválido').max(9999999999).nullable(),
+        ),
+      }),
+    )
+    .max(20000),
+});
+
+export const prazoPagamentoSchema = z.object({
+  codigo,
+  descricao: z.string().trim().min(1, 'Informe a descrição').max(60),
+  ativo: z.boolean().default(true),
+});
+export type PrazoPagamentoInput = z.infer<typeof prazoPagamentoSchema>;

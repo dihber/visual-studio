@@ -72,3 +72,40 @@ export function quantidadeNoPedido(
 ): number {
   return itens.find((x) => x.produto.id === produtoId && x.tipoEmbalagem === tipo)?.quantidade ?? 0;
 }
+
+// ---------- forma de pagamento ----------
+export interface PagamentoEscolhido {
+  forma: 'PIX' | 'BOLETO';
+  prazoId: string | null;
+  prazoDescricao: string | null;
+}
+
+export interface OpcaoPagamento extends PagamentoEscolhido {
+  chave: string;
+  texto: string;
+}
+
+/** PIX sempre; boleto só nos prazos cadastrados para o cliente. */
+export function opcoesPagamento(prazos: { id: string; descricao: string }[]): OpcaoPagamento[] {
+  return [
+    { chave: 'PIX', forma: 'PIX', prazoId: null, prazoDescricao: null, texto: 'PIX' },
+    ...prazos.map((p) => ({
+      chave: p.id,
+      forma: 'BOLETO' as const,
+      prazoId: p.id,
+      prazoDescricao: p.descricao,
+      texto: `Boleto ${p.descricao}`,
+    })),
+  ];
+}
+
+/** Mantém a escolha só se ela ainda for permitida para o cliente (ex.: ao trocar de cliente). */
+export function pagamentoValido(
+  escolhido: PagamentoEscolhido | null,
+  prazos: { id: string; descricao: string }[],
+): PagamentoEscolhido | null {
+  if (!escolhido) return null;
+  if (escolhido.forma === 'PIX') return escolhido;
+  const prazo = prazos.find((p) => p.id === escolhido.prazoId);
+  return prazo ? { ...escolhido, prazoDescricao: prazo.descricao } : null;
+}

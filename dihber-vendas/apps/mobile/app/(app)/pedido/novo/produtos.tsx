@@ -23,8 +23,8 @@ export default function SelecionarProdutos() {
   const [total] = useState(() => contarProdutos());
 
   useEffect(() => {
-    setLista(buscarProdutos(busca));
-  }, [busca]);
+    setLista(buscarProdutos(busca, r.cliente?.tabelaPrecoId ?? null));
+  }, [busca, r.cliente?.tabelaPrecoId]);
 
   return (
     <SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
@@ -116,6 +116,7 @@ const CartaoProduto = memo(function CartaoProduto({
       <Text style={st.descricao}>{p.descricao}</Text>
       <Text style={st.info}>
         Emb.: {p.embalagem} · {formatarMoeda(p.precoUnitario)}/UN
+        {p.precoUnitario !== p.precoBase ? ' (tabela do cliente)' : ''}
         {p.estoque !== null ? ` · Estoque: ${formatarQuantidade(p.estoque)}` : ''}
       </Text>
       <View style={st.controles}>

@@ -8,7 +8,7 @@ export { prisma };
 
 export async function limparBanco() {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "AppBuild","PedidoItem","Pedido","Dispositivo","Sessao","Usuario","Vendedor","Supervisor","Cliente","Produto" RESTART IDENTITY CASCADE',
+    'TRUNCATE "AppBuild","ClientePrazo","ClienteVendedor","TabelaPrecoItem","TabelaPreco","PrazoPagamento","PedidoItem","Pedido","Dispositivo","Sessao","Usuario","Vendedor","Supervisor","Cliente","Produto" RESTART IDENTITY CASCADE',
   );
 }
 
@@ -73,6 +73,12 @@ export async function montarCenario(): Promise<Cenario> {
   });
   const clienteInativo = await prisma.cliente.create({
     data: { codigo: 'C2', razaoSocial: 'Cliente Inativo', cpfCnpj: '52998224725', ativo: false },
+  });
+  // carteira: os dois clientes atendidos por todos os vendedores do cenário
+  await prisma.clienteVendedor.createMany({
+    data: [cliente.id, clienteInativo.id].flatMap((clienteId) =>
+      [vend1.id, vend2.id, vendOutraEquipe.id].map((vendedorId) => ({ clienteId, vendedorId })),
+    ),
   });
   const produto = await prisma.produto.create({
     data: {
