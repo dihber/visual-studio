@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Perfil {
+  ADMIN
+  SUPERVISOR
+  VENDEDOR
+}
+
+enum StatusPedido {
+  PENDENTE
+  APROVADO
+  REPROVADO
+  CANCELADO
+  /// faturado: vira venda (baixa o estoque e conta para comissão)
+  FATURADO
+}
+
+enum TipoEmbalagem {
+  CX
+  UN
+}
+
+model Usuario {
+  id                String        @id @default(uuid())
+  nome              String
+  login             String        @unique
+  senhaHash         String
+  perfil            Perfil
+  ativo             Boolean       @default(true)
+  vendedorId        String?       @unique
+  vendedor          Vendedor?     @relation(fields: [vendedorId], references: [id])
+  supervisorId      String?       @unique
+  supervisor        Supervisor?   @relation(fields: [supervisorId], references: [id])
+  dispositivos      Dispositivo[]
+  sessoes           Sessao[]
+  pedidosAvaliados  Pedido[]      @relation("PedidoAvaliador")
+  pedidosCancelados Pedido[]      @relation("PedidoCancelador")
+  buildsApp         AppBuild[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+/// Sessões de refresh token (permite logout/revogação).
+model Sessao {
+  id         String    @id @default(uuid())
+  usuarioId  String
+  usuario    Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiraEm   DateTime
+  revogadaEm DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([usuarioId])
+}
+
+model Supervisor {
+  id         String     @id @default(uuid())
+  codigo     String     @unique
+  nome       String
+  email      String?
+  telefone   String?
+  ativo      Boolean    @default(true)
+  vendedores Vendedor[]
+  usuario    Usuario?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model Vendedor {
+  id           String            @id @default(uuid())
+  codigo       String            @unique
+  nome         String
+  email        String?
+  telefone     String?
+  ativo        Boolean           @default(true)
+  supervisorId String?
+  supervisor   Supervisor?       @relation(fields: [supervisorId], references: [id])
+  usuario      Usuario?
+  pedidos      Pedido[]
+  carteira     ClienteVendedor[]
+  comissoes    ComissaoItem[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([supervisorId])
+}
+
+model Cliente {
+  id            String            @id @default(uuid())
+  codigo        String            @unique
+  razaoSocial   String
+  nomeFantasia  String?
+  cpfCnpj       String            @unique
+  telefone      String?
+  email         String?
+  endereco      String?
+  cidade        String?
+  uf            String?           @db.Char(2)
+  ativo         Boolean           @default(true)
+  tabelaPrecoId String?
+  tabelaPreco   TabelaPreco?      @relation(fields: [tabelaPrecoId], references: [id])
+  vendedores    ClienteVendedor[]
+  prazos        ClientePrazo[]
+  pedidos       Pedido[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([updatedAt])
+}
+
+model Produto {
+  id                 String            @id @default(uuid())
+  codigo             String            @unique
+  descricao          String
+  embalagem          String
+  qtdPorCaixa        Int
+  precoUnitario      Decimal           @db.Decimal(12, 2)
+  estoque            Decimal?          @db.Decimal(12, 3)
+  /// % de comissão do vendedor sobre o valor vendido do item
+  comissaoPercentual Decimal           @default(0) @db.Decimal(5, 2)
+  ativo              Boolean           @default(true)
+  itens              PedidoItem[]
+  precosTabela       TabelaPrecoItem[]
+  comissoes          ComissaoItem[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([updatedAt])
+}
+
+model Dispositivo {
+  id         String    @id @default(uuid())
+  deviceId   String    @unique
+  modelo     String?
+  sistema    String?
+  appVersao  String?
+  usuarioId  String
+  usuario    Usuario   @relation(fields: [usuarioId], references: [id])
+  ultimoSync DateTime?
+  pedidos    Pedido[]
+  createdAt  DateTime  @default(now())
+
+  @@index([usuarioId])
+}
+
+model Pedido {
+  id                 String          @id // UUID gerado NO APP (idempotência)
+  numero             Int             @unique @default(autoincrement())
+  vendedorId         String
+  vendedor           Vendedor        @relation(fields: [vendedorId], references: [id])
+  clienteId          String
+  cliente            Cliente         @relation(fields: [clienteId], references: [id])
+  dispositivoId      String
+  dispositivo        Dispositivo     @relation(fields: [dispositivoId], references: [id])
+  status             StatusPedido    @default(PENDENTE)
+  observacao         String?
+  valorTotal         Decimal         @db.Decimal(12, 2)
+  criadoNoAppEm      DateTime
+  recebidoEm         DateTime        @default(now())
+  avaliadoPorId      String?
+  avaliadoPor        Usuario?        @relation("PedidoAvaliador", fields: [avaliadoPorId], references: [id])
+  avaliadoEm         DateTime?
+  motivoReprovacao   String?
+  canceladoPorId     String?
+  canceladoPor       Usuario?        @relation("PedidoCancelador", fields: [canceladoPorId], references: [id])
+  canceladoEm        DateTime?
+  motivoCancelamento String?
+  /// null = pedido de versões antigas do app (sem forma de pagamento)
+  formaPagamento     FormaPagamento?
+  prazoPagamentoId   String?
+  prazoPagamento     PrazoPagamento? @relation(fields: [prazoPagamentoId], references: [id])
+  /// descrição do prazo no momento do pedido (ex.: "30/60 dias")
+  prazoDescricao     String?
+  itens              PedidoItem[]
+  comissoes          ComissaoItem[]
+  updatedAt          DateTime        @updatedAt
+
+  @@index([vendedorId, updatedAt])
+  @@index([status])
+  @@index([recebidoEm])
+}
+
+model PedidoItem {
+  id            String        @id @default(uuid())
+  pedidoId      String
+  pedido        Pedido        @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  comissao      ComissaoItem?
+  produtoId     String
+  produto       Produto       @relation(fields: [produtoId], references: [id])
+  tipoEmbalagem TipoEmbalagem
+  quantidade    Decimal       @db.Decimal(12, 3)
+  qtdUnidades   Decimal       @db.Decimal(12, 3)
+  precoUnitario Decimal       @db.Decimal(12, 2)
+  valorTotal    Decimal       @db.Decimal(12, 2)
+
+  @@index([pedidoId])
+}
+
+enum StatusBuildApp {
+  NA_FILA
+  GERANDO
+  CONCLUIDO
+  FALHOU
+}
+
+/// APKs gerados pelo botão "Gerar APK" do portal (GitHub Actions + EAS Build).
+model AppBuild {
+  id              String         @id @default(uuid())
+  status          StatusBuildApp @default(NA_FILA)
+  solicitadoPorId String
+  solicitadoPor   Usuario        @relation(fields: [solicitadoPorId], references: [id])
+  solicitadoEm    DateTime       @default(now())
+  concluidoEm     DateTime?
+  versao          String?
+  easBuildId      String?
+  urlDownload     String?
+  githubRunId     String?
+  githubRunUrl    String?
+  erro            String?
+  updatedAt       DateTime       @updatedAt
+
+  @@index([solicitadoEm])
+}
+
+enum FormaPagamento {
+  PIX
+  BOLETO
+}
+
+/// Carteira: quais vendedores podem vender para o cliente (cliente sem vínculo não aparece no app).
+model ClienteVendedor {
+  clienteId  String
+  cliente    Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  vendedorId String
+  vendedor   Vendedor @relation(fields: [vendedorId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([clienteId, vendedorId])
+  @@index([vendedorId])
+}
+
+/// Tabela de preço por região (ex.: "Itupeva/SP"). Produto fora da tabela usa o preço base.
+model TabelaPreco {
+  id        String            @id @default(uuid())
+  codigo    String            @unique
+  nome      String
+  cidade    String?
+  uf        String?           @db.Char(2)
+  ativo     Boolean           @default(true)
+  itens     TabelaPrecoItem[]
+  clientes  Cliente[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+}
+
+model TabelaPrecoItem {
+  id            String      @id @default(uuid())
+  tabelaPrecoId String
+  tabelaPreco   TabelaPreco @relation(fields: [tabelaPrecoId], references: [id], onDelete: Cascade)
+  produtoId     String
+  produto       Produto     @relation(fields: [produtoId], references: [id])
+  preco         Decimal     @db.Decimal(12, 2)
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([tabelaPrecoId, produtoId])
+}
+
+/// Prazos de boleto (ex.: "30 dias", "30/60 dias"). PIX é sempre permitido.
+model PrazoPagamento {
+  id        String         @id @default(uuid())
+  codigo    String         @unique
+  descricao String
+  ativo     Boolean        @default(true)
+  clientes  ClientePrazo[]
+  pedidos   Pedido[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model ClientePrazo {
+  clienteId String
+  cliente   Cliente        @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  prazoId   String
+  prazo     PrazoPagamento @relation(fields: [prazoId], references: [id], onDelete: Cascade)
+
+  @@id([clienteId, prazoId])
+}
+
+/// Comissão de cada item vendido (gravada ao receber o pedido, com o % daquele momento).
+/// O relatório mensal soma só os pedidos FATURADOS.
+model ComissaoItem {
+  id            String     @id @default(uuid())
+  pedidoId      String
+  pedido        Pedido     @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  pedidoItemId  String     @unique
+  pedidoItem    PedidoItem @relation(fields: [pedidoItemId], references: [id], onDelete: Cascade)
+  vendedorId    String
+  vendedor      Vendedor   @relation(fields: [vendedorId], references: [id])
+  produtoId     String
+  produto       Produto    @relation(fields: [produtoId], references: [id])
+  /// mês do pedido no horário de Brasília (AAAA-MM)
+  competencia   String
+  valorBase     Decimal    @db.Decimal(12, 2)
+  percentual    Decimal    @db.Decimal(5, 2)
+  valorComissao Decimal    @db.Decimal(12, 2)
+  createdAt     DateTime   @default(now())
+
+  @@index([vendedorId, competencia])
+  @@index([competencia])
+}

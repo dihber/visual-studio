@@ -1,0 +1,13 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - prisma
+  - esbuild
+  - bcrypt
+# React Native exige exatamente a mesma versão de react usada pelo renderer
+overrides:
+  react: 19.3.0
+  react-dom: 19.3.0

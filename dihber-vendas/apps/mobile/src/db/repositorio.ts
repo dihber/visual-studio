@@ -1,0 +1,467 @@
+import type {
+  ClienteSync,
+  FormaPagamento,
+  ProdutoSync,
+  StatusPedido,
+  TabelaPrecoSync,
+  TipoEmbalagem,
+} from '@dihber/shared';
+import { db } from './index';
+import { normalizar } from '../lib/texto';
+import { calcularRascunho, type ItemRascunho } from '../lib/rascunho';
+
+export interface ClienteLocal {
+  id: string;
+  codigo: string;
+  razaoSocial: string;
+  nomeFantasia: string | null;
+  cpfCnpj: string;
+  telefone: string | null;
+  cidade: string | null;
+  uf: string | null;
+  tabelaPrecoId: string | null;
+  /** Prazos de boleto permitidos (PIX é sempre permitido). */
+  prazos: PrazoCliente[];
+}
+
+export interface PrazoCliente {
+  id: string;
+  descricao: string;
+}
+
+export interface ProdutoLocal {
+  id: string;
+  codigo: string;
+  descricao: string;
+  embalagem: string;
+  qtdPorCaixa: number;
+  /** Preço para o cliente: o da tabela dele, ou o preço base. */
+  precoUnitario: number;
+  precoBase: number;
+  estoque: number | null;
+  /** saldo para vender no servidor (null = sem controle de estoque) */
+  estoqueDisponivel: number | null;
+}
+
+export type SituacaoLocal = 'NAO_ENVIADO' | 'ENVIADO';
+
+export interface PedidoLocal {
+  id: string;
+  clienteId: string;
+  clienteNome: string;
+  clienteCodigo: string;
+  observacao: string | null;
+  valorTotal: number;
+  criadoNoAppEm: string;
+  situacao: SituacaoLocal;
+  numero: number | null;
+  status: StatusPedido | null;
+  motivoReprovacao: string | null;
+  motivoCancelamento: string | null;
+  formaPagamento: FormaPagamento | null;
+  prazoId: string | null;
+  prazoDescricao: string | null;
+  erroEnvio: string | null;
+  enviadoEm: string | null;
+}
+
+export interface ItemLocal {
+  id: string;
+  pedidoId: string;
+  produtoId: string;
+  codigo: string;
+  descricao: string;
+  embalagem: string;
+  qtdPorCaixa: number;
+  tipoEmbalagem: TipoEmbalagem;
+  quantidade: number;
+  qtdUnidades: number;
+  precoUnitario: number;
+  valorTotal: number;
+}
+
+const LIMITE_BUSCA = 60;
+
+/** Monta busca por termos: todos os termos precisam aparecer (código, nome, CNPJ...). */
+function filtroBusca(texto: string, coluna = 'busca') {
+  const termos = normalizar(texto).split(/\s+/).filter(Boolean).slice(0, 5);
+  return {
+    where: termos.length ? 'WHERE ' + termos.map(() => `${coluna} LIKE ?`).join(' AND ') : '',
+    params: termos.map((t) => `%${t}%`),
+  };
+}
+
+// ---------- clientes ----------
+type LinhaCliente = Omit<ClienteLocal, 'prazos'> & { prazos: string };
+const COLUNAS_CLIENTE =
+  'id, codigo, razaoSocial, nomeFantasia, cpfCnpj, telefone, cidade, uf, tabelaPrecoId, prazos';
+
+function lerCliente(l: LinhaCliente): ClienteLocal {
+  let prazos: PrazoCliente[] = [];
+  try {
+    prazos = JSON.parse(l.prazos || '[]');
+  } catch {
+    prazos = [];
+  }
+  return { ...l, prazos };
+}
+
+export function buscarClientes(texto: string): ClienteLocal[] {
+  const f = filtroBusca(texto);
+  return db
+    .getAllSync<LinhaCliente>(
+      `SELECT ${COLUNAS_CLIENTE} FROM clientes ${f.where} ORDER BY razaoSocial LIMIT ${LIMITE_BUSCA}`,
+      f.params,
+    )
+    .map(lerCliente);
+}
+
+export function obterCliente(id: string): ClienteLocal | null {
+  const l = db.getFirstSync<LinhaCliente>(`SELECT ${COLUNAS_CLIENTE} FROM clientes WHERE id = ?`, [
+    id,
+  ]);
+  return l ? lerCliente(l) : null;
+}
+
+export function contarClientes(): number {
+  return db.getFirstSync<{ n: number }>('SELECT COUNT(*) n FROM clientes')?.n ?? 0;
+}
+
+/**
+ * Aplica o delta de clientes. `removidos` = saíram da carteira. Na carga completa
+ * (`substituir`), apaga do celular quem não veio na lista.
+ */
+export function aplicarClientes(
+  lista: ClienteSync[],
+  removidos: string[] = [],
+  substituir = false,
+) {
+  const r = { novos: 0, alterados: 0, removidos: 0 };
+  if (substituir) {
+    const manter = new Set(lista.filter((c) => c.ativo).map((c) => c.id));
+    const atuais = db.getAllSync<{ id: string }>('SELECT id FROM clientes');
+    removidos = [...removidos, ...atuais.map((c) => c.id).filter((id) => !manter.has(id))];
+  }
+  if (removidos.length) {
+    db.withTransactionSync(() => {
+      for (const id of new Set(removidos))
+        r.removidos += db.runSync('DELETE FROM clientes WHERE id = ?', [id]).changes;
+    });
+  }
+  if (!lista.length) return r;
+  const existe = db.prepareSync('SELECT 1 FROM clientes WHERE id = ?');
+  const upsert = db.prepareSync(
+    `INSERT INTO clientes (id, codigo, razaoSocial, nomeFantasia, cpfCnpj, telefone, cidade, uf, tabelaPrecoId, prazos, busca)
+     VALUES ($id, $codigo, $razaoSocial, $nomeFantasia, $cpfCnpj, $telefone, $cidade, $uf, $tabelaPrecoId, $prazos, $busca)
+     ON CONFLICT(id) DO UPDATE SET codigo=excluded.codigo, razaoSocial=excluded.razaoSocial, nomeFantasia=excluded.nomeFantasia,
+       cpfCnpj=excluded.cpfCnpj, telefone=excluded.telefone, cidade=excluded.cidade, uf=excluded.uf,
+       tabelaPrecoId=excluded.tabelaPrecoId, prazos=excluded.prazos, busca=excluded.busca`,
+  );
+  const remover = db.prepareSync('DELETE FROM clientes WHERE id = ?');
+  try {
+    db.withTransactionSync(() => {
+      for (const c of lista) {
+        const ja = !!existe.executeSync([c.id]).getFirstSync();
+        if (!c.ativo) {
+          if (ja) {
+            remover.executeSync([c.id]);
+            r.removidos++;
+          }
+          continue;
+        }
+        upsert.executeSync({
+          $id: c.id,
+          $codigo: c.codigo,
+          $razaoSocial: c.razaoSocial,
+          $nomeFantasia: c.nomeFantasia,
+          $cpfCnpj: c.cpfCnpj,
+          $telefone: c.telefone,
+          $cidade: c.cidade,
+          $uf: c.uf,
+          $tabelaPrecoId: c.tabelaPrecoId ?? null,
+          $prazos: JSON.stringify(c.prazos ?? []),
+          $busca: normalizar(
+            [c.codigo, c.razaoSocial, c.nomeFantasia, c.cpfCnpj, c.cidade]
+              .filter(Boolean)
+              .join(' '),
+          ),
+        });
+        ja ? r.alterados++ : r.novos++;
+      }
+    });
+  } finally {
+    existe.finalizeSync();
+    upsert.finalizeSync();
+    remover.finalizeSync();
+  }
+  return r;
+}
+
+// ---------- produtos ----------
+/** Busca produtos já com o preço do cliente (tabela dele; sem preço na tabela = preço base). */
+export function buscarProdutos(texto: string, tabelaPrecoId: string | null = null): ProdutoLocal[] {
+  const f = filtroBusca(texto, 'p.busca');
+  return db.getAllSync<ProdutoLocal>(
+    `SELECT p.id, p.codigo, p.descricao, p.embalagem, p.qtdPorCaixa, p.estoque, p.estoqueDisponivel,
+            COALESCE(t.preco, p.precoUnitario) AS precoUnitario, p.precoUnitario AS precoBase
+       FROM produtos p
+       LEFT JOIN precos_tabela t ON t.tabelaId = ? AND t.produtoId = p.id
+       ${f.where}
+      ORDER BY p.descricao LIMIT ${LIMITE_BUSCA}`,
+    [tabelaPrecoId, ...f.params],
+  );
+}
+
+/** Preço de um produto para a tabela do cliente (null = produto não existe mais no celular). */
+export function precoProduto(produtoId: string, tabelaPrecoId: string | null): number | null {
+  const r = db.getFirstSync<{ preco: number }>(
+    `SELECT COALESCE(t.preco, p.precoUnitario) AS preco FROM produtos p
+       LEFT JOIN precos_tabela t ON t.tabelaId = ? AND t.produtoId = p.id
+      WHERE p.id = ?`,
+    [tabelaPrecoId, produtoId],
+  );
+  return r?.preco ?? null;
+}
+
+/** Substitui as tabelas de preço recebidas (inativa = removida). */
+export function aplicarTabelasPreco(lista: TabelaPrecoSync[], substituir = false) {
+  db.withTransactionSync(() => {
+    if (substituir) db.runSync('DELETE FROM precos_tabela');
+    for (const t of lista) {
+      db.runSync('DELETE FROM precos_tabela WHERE tabelaId = ?', [t.id]);
+      if (!t.ativo) continue;
+      for (const i of t.itens) {
+        db.runSync('INSERT INTO precos_tabela (tabelaId, produtoId, preco) VALUES (?, ?, ?)', [
+          t.id,
+          i.produtoId,
+          i.preco,
+        ]);
+      }
+    }
+  });
+  return lista.length;
+}
+
+export function contarProdutos(): number {
+  return db.getFirstSync<{ n: number }>('SELECT COUNT(*) n FROM produtos')?.n ?? 0;
+}
+
+export function aplicarProdutos(lista: ProdutoSync[], substituir = false) {
+  const r = { novos: 0, alterados: 0, removidos: 0 };
+  if (substituir) {
+    const manter = new Set(lista.filter((p) => p.ativo).map((p) => p.id));
+    const sobrando = db
+      .getAllSync<{ id: string }>('SELECT id FROM produtos')
+      .filter((p) => !manter.has(p.id));
+    db.withTransactionSync(() => {
+      for (const p of sobrando)
+        r.removidos += db.runSync('DELETE FROM produtos WHERE id = ?', [p.id]).changes;
+    });
+  }
+  if (!lista.length) return r;
+  const existe = db.prepareSync('SELECT 1 FROM produtos WHERE id = ?');
+  const upsert = db.prepareSync(
+    `INSERT INTO produtos (id, codigo, descricao, embalagem, qtdPorCaixa, precoUnitario, estoque, estoqueDisponivel, busca)
+     VALUES ($id, $codigo, $descricao, $embalagem, $qtdPorCaixa, $precoUnitario, $estoque, $estoqueDisponivel, $busca)
+     ON CONFLICT(id) DO UPDATE SET codigo=excluded.codigo, descricao=excluded.descricao, embalagem=excluded.embalagem,
+       qtdPorCaixa=excluded.qtdPorCaixa, precoUnitario=excluded.precoUnitario, estoque=excluded.estoque,
+       estoqueDisponivel=excluded.estoqueDisponivel, busca=excluded.busca`,
+  );
+  const remover = db.prepareSync('DELETE FROM produtos WHERE id = ?');
+  try {
+    db.withTransactionSync(() => {
+      for (const p of lista) {
+        const ja = !!existe.executeSync([p.id]).getFirstSync();
+        if (!p.ativo) {
+          if (ja) {
+            remover.executeSync([p.id]);
+            r.removidos++;
+          }
+          continue;
+        }
+        upsert.executeSync({
+          $id: p.id,
+          $codigo: p.codigo,
+          $descricao: p.descricao,
+          $embalagem: p.embalagem,
+          $qtdPorCaixa: p.qtdPorCaixa,
+          $precoUnitario: p.precoUnitario,
+          $estoque: p.estoque,
+          $estoqueDisponivel: p.estoqueDisponivel ?? null,
+          $busca: normalizar(`${p.codigo} ${p.descricao}`),
+        });
+        ja ? r.alterados++ : r.novos++;
+      }
+    });
+  } finally {
+    existe.finalizeSync();
+    upsert.finalizeSync();
+    remover.finalizeSync();
+  }
+  return r;
+}
+
+// ---------- pedidos ----------
+export function listarPedidos(limite = 200): PedidoLocal[] {
+  return db.getAllSync<PedidoLocal>(
+    `SELECT * FROM pedidos ORDER BY CASE situacao WHEN 'NAO_ENVIADO' THEN 0 ELSE 1 END, criadoNoAppEm DESC LIMIT ?`,
+    [limite],
+  );
+}
+
+export function contarNaoEnviados(): number {
+  return (
+    db.getFirstSync<{ n: number }>(`SELECT COUNT(*) n FROM pedidos WHERE situacao = 'NAO_ENVIADO'`)
+      ?.n ?? 0
+  );
+}
+
+export function obterPedido(id: string): { pedido: PedidoLocal; itens: ItemLocal[] } | null {
+  const pedido = db.getFirstSync<PedidoLocal>('SELECT * FROM pedidos WHERE id = ?', [id]);
+  if (!pedido) return null;
+  const itens = db.getAllSync<ItemLocal>(
+    'SELECT * FROM pedido_itens WHERE pedidoId = ? ORDER BY rowid',
+    [id],
+  );
+  return { pedido, itens };
+}
+
+export function pedidosNaoEnviados(): { pedido: PedidoLocal; itens: ItemLocal[] }[] {
+  const lista = db.getAllSync<PedidoLocal>(
+    `SELECT * FROM pedidos WHERE situacao = 'NAO_ENVIADO' ORDER BY criadoNoAppEm`,
+  );
+  return lista.map((pedido) => ({
+    pedido,
+    itens: db.getAllSync<ItemLocal>('SELECT * FROM pedido_itens WHERE pedidoId = ?', [pedido.id]),
+  }));
+}
+
+export interface SalvarPedidoDados {
+  id: string;
+  cliente: ClienteLocal;
+  itens: ItemRascunho[];
+  observacao: string;
+  /** Forma de pagamento escolhida (ausente só em pedidos antigos). */
+  pagamento?: {
+    forma: FormaPagamento;
+    prazoId: string | null;
+    prazoDescricao: string | null;
+  } | null;
+  criadoNoAppEm?: string;
+  gerarId: () => string;
+}
+
+/** Salva (cria ou substitui) um pedido não enviado. */
+export function salvarPedido(d: SalvarPedidoDados) {
+  const { itens, total } = calcularRascunho(d.itens);
+  const existente = db.getFirstSync<{ situacao: string; criadoNoAppEm: string }>(
+    'SELECT situacao, criadoNoAppEm FROM pedidos WHERE id = ?',
+    [d.id],
+  );
+  if (existente && existente.situacao !== 'NAO_ENVIADO')
+    throw new Error('Pedido já enviado não pode ser alterado.');
+
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM pedido_itens WHERE pedidoId = ?', [d.id]);
+    db.runSync(
+      `INSERT INTO pedidos (id, clienteId, clienteNome, clienteCodigo, observacao, valorTotal, criadoNoAppEm, formaPagamento, prazoId, prazoDescricao, situacao, erroEnvio)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NAO_ENVIADO', NULL)
+       ON CONFLICT(id) DO UPDATE SET clienteId=excluded.clienteId, clienteNome=excluded.clienteNome, clienteCodigo=excluded.clienteCodigo,
+         observacao=excluded.observacao, valorTotal=excluded.valorTotal, formaPagamento=excluded.formaPagamento,
+         prazoId=excluded.prazoId, prazoDescricao=excluded.prazoDescricao, erroEnvio=NULL`,
+      [
+        d.id,
+        d.cliente.id,
+        d.cliente.nomeFantasia || d.cliente.razaoSocial,
+        d.cliente.codigo,
+        d.observacao.trim() || null,
+        total,
+        existente?.criadoNoAppEm ?? d.criadoNoAppEm ?? new Date().toISOString(),
+        d.pagamento?.forma ?? null,
+        d.pagamento?.forma === 'BOLETO' ? d.pagamento.prazoId : null,
+        d.pagamento?.forma === 'BOLETO' ? d.pagamento.prazoDescricao : null,
+      ],
+    );
+    for (const i of itens) {
+      db.runSync(
+        `INSERT INTO pedido_itens (id, pedidoId, produtoId, codigo, descricao, embalagem, qtdPorCaixa, tipoEmbalagem, quantidade, qtdUnidades, precoUnitario, valorTotal)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          d.gerarId(),
+          d.id,
+          i.produto.id,
+          i.produto.codigo,
+          i.produto.descricao,
+          i.produto.embalagem,
+          i.produto.qtdPorCaixa,
+          i.tipoEmbalagem,
+          i.quantidade,
+          i.qtdUnidades,
+          i.produto.precoUnitario,
+          i.valorTotal,
+        ],
+      );
+    }
+  });
+}
+
+export function excluirPedido(id: string) {
+  const r = db.runSync(`DELETE FROM pedidos WHERE id = ? AND situacao = 'NAO_ENVIADO'`, [id]);
+  db.runSync(
+    'DELETE FROM pedido_itens WHERE pedidoId = ? AND NOT EXISTS (SELECT 1 FROM pedidos WHERE id = ?)',
+    [id, id],
+  );
+  if (r.changes === 0) throw new Error('Pedido já enviado não pode ser excluído.');
+}
+
+export function marcarEnviado(id: string, numero: number) {
+  db.runSync(
+    `UPDATE pedidos SET situacao='ENVIADO', numero=?, status=COALESCE(status,'PENDENTE'), erroEnvio=NULL, enviadoEm=? WHERE id = ?`,
+    [numero, new Date().toISOString(), id],
+  );
+}
+
+export function marcarErroEnvio(id: string, erro: string) {
+  db.runSync(`UPDATE pedidos SET erroEnvio=? WHERE id = ? AND situacao='NAO_ENVIADO'`, [erro, id]);
+}
+
+export function atualizarStatusPedidos(
+  lista: {
+    id: string;
+    numero: number;
+    status: StatusPedido;
+    motivoReprovacao: string | null;
+    /** Opcional: API antiga não envia. */
+    motivoCancelamento?: string | null;
+  }[],
+) {
+  let n = 0;
+  db.withTransactionSync(() => {
+    for (const s of lista) {
+      const r = db.runSync(
+        `UPDATE pedidos SET status=?, motivoReprovacao=?, motivoCancelamento=?, numero=?, situacao='ENVIADO', erroEnvio=NULL WHERE id = ?`,
+        [s.status, s.motivoReprovacao, s.motivoCancelamento ?? null, s.numero, s.id],
+      );
+      n += r.changes;
+    }
+  });
+  return n;
+}
+
+/**
+ * Saldo que este pedido pode usar de um produto: disponível no servidor (último sync) menos o
+ * que outros pedidos deste celular ainda não enviados já estão usando. null = sem controle.
+ */
+export function saldoParaPedido(produtoId: string, pedidoAtualId: string): number | null {
+  const p = db.getFirstSync<{ estoqueDisponivel: number | null }>(
+    'SELECT estoqueDisponivel FROM produtos WHERE id = ?',
+    [produtoId],
+  );
+  if (!p || p.estoqueDisponivel === null || p.estoqueDisponivel === undefined) return null;
+  const local = db.getFirstSync<{ un: number | null }>(
+    `SELECT SUM(i.qtdUnidades) AS un FROM pedido_itens i JOIN pedidos x ON x.id = i.pedidoId
+      WHERE x.situacao = 'NAO_ENVIADO' AND x.id <> ? AND i.produtoId = ?`,
+    [pedidoAtualId, produtoId],
+  );
+  return Math.round((p.estoqueDisponivel - (local?.un ?? 0)) * 1000) / 1000;
+}
