@@ -135,3 +135,39 @@ describe('rate limit do login', () => {
     );
   });
 });
+
+describe('login sem diferenciar maiúsculas', () => {
+  it('aceita qualquer combinação de maiúsculas e espaços em volta do login', async () => {
+    for (const l of ['ADMIN', 'Admin', '  admin  ']) {
+      const r = await login({ login: l, senha: 'senha123', origem: 'web' });
+      expect(r.statusCode, l).toBe(200);
+      expect(r.json().usuario.login).toBe('admin');
+    }
+  });
+
+  it('login antigo gravado com maiúscula também entra digitado em minúsculas', async () => {
+    await prisma.usuario.update({ where: { login: 'v2' }, data: { login: 'Vendedor2' } });
+    expect((await login({ login: 'vendedor2', senha: 'senha123', origem: 'app' })).statusCode).toBe(
+      200,
+    );
+    expect((await login({ login: 'Vendedor2', senha: 'senha123', origem: 'app' })).statusCode).toBe(
+      200,
+    );
+    await prisma.usuario.update({ where: { login: 'Vendedor2' }, data: { login: 'v2' } });
+  });
+
+  it('com dois logins que só diferem na caixa, vale o idêntico e o ambíguo é recusado', async () => {
+    const base = await prisma.usuario.findUniqueOrThrow({ where: { login: 'admin' } });
+    await prisma.usuario.createMany({
+      data: [
+        { nome: 'X1', login: 'Joao', perfil: 'ADMIN', senhaHash: base.senhaHash },
+        { nome: 'X2', login: 'joaO', perfil: 'ADMIN', senhaHash: base.senhaHash },
+      ],
+    });
+    expect(
+      (await login({ login: 'Joao', senha: 'senha123', origem: 'web' })).json().usuario.nome,
+    ).toBe('X1');
+    expect((await login({ login: 'JOAO', senha: 'senha123', origem: 'web' })).statusCode).toBe(401);
+    await prisma.usuario.deleteMany({ where: { login: { in: ['Joao', 'joaO'] } } });
+  });
+});

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -74,16 +74,47 @@ export function Botao({
   );
 }
 
-export function Campo({ rotulo, ...props }: TextInputProps & { rotulo?: string }) {
+export function Campo({
+  rotulo,
+  direita,
+  ...props
+}: TextInputProps & { rotulo?: string; direita?: ReactNode }) {
   return (
     <View style={{ gap: 6 }}>
       {rotulo && <Text style={s.rotulo}>{rotulo}</Text>}
-      <TextInput
-        placeholderTextColor={cores.textoFraco}
-        {...props}
-        style={[s.input, props.style]}
-      />
+      <View style={{ justifyContent: 'center' }}>
+        <TextInput
+          placeholderTextColor={cores.textoFraco}
+          {...props}
+          style={[s.input, direita ? { paddingRight: 56 } : null, props.style]}
+        />
+        {direita && <View style={s.direita}>{direita}</View>}
+      </View>
     </View>
+  );
+}
+
+/** Campo de senha com botão de olho para mostrar/ocultar o que foi digitado. */
+export function CampoSenha(props: TextInputProps & { rotulo?: string }) {
+  const [visivel, setVisivel] = useState(false);
+  return (
+    <Campo
+      {...props}
+      secureTextEntry={!visivel}
+      autoCapitalize="none"
+      autoCorrect={false}
+      direita={
+        <Pressable
+          onPress={() => setVisivel((v) => !v)}
+          hitSlop={10}
+          style={s.olho}
+          accessibilityRole="button"
+          accessibilityLabel={visivel ? 'Ocultar senha' : 'Mostrar senha'}
+        >
+          <Text style={{ fontSize: 22 }}>{visivel ? '🙈' : '👁️'}</Text>
+        </Pressable>
+      }
+    />
   );
 }
 
@@ -162,6 +193,8 @@ export const s = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     color: cores.texto,
   },
+  direita: { position: 'absolute', right: 6, top: 0, bottom: 0, justifyContent: 'center' },
+  olho: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   cartao: {
     backgroundColor: cores.cartao,
     borderRadius: 14,

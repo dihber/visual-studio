@@ -72,7 +72,13 @@ export function Usuarios() {
         ]}
         campos={[
           { nome: 'nome', label: 'Nome', obrigatorio: true, largura: 'inteira' },
-          { nome: 'login', label: 'Login', obrigatorio: true, largura: 'metade' },
+          {
+            nome: 'login',
+            label: 'Login',
+            obrigatorio: true,
+            largura: 'metade',
+            ajuda: 'Salvo em minúsculas; no login tanto faz maiúscula ou minúscula',
+          },
           {
             nome: 'perfil',
             label: 'Perfil',

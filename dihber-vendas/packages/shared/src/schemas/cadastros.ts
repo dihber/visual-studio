@@ -64,7 +64,9 @@ const usuarioBase = z.object({
     .trim()
     .min(3, 'Mínimo 3 caracteres')
     .max(60)
-    .regex(/^[a-zA-Z0-9._-]+$/, 'Use apenas letras, números, ponto, hífen ou _'),
+    .regex(/^[a-zA-Z0-9._-]+$/, 'Use apenas letras, números, ponto, hífen ou _')
+    // logins são salvos sempre em minúsculas (o login não diferencia maiúsculas)
+    .transform((v) => v.toLowerCase()),
   perfil: z.enum(PERFIS),
   ativo: z.boolean().default(true),
   vendedorId: z.preprocess((v) => (v === '' ? null : v), z.string().uuid().nullable().optional()),

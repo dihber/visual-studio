@@ -29,6 +29,18 @@ const selectUsuario = {
   updatedAt: true,
 } as const;
 
+/** Impede logins que só diferem em maiúsculas/minúsculas ("Diogo" e "diogo"). */
+async function garantirLoginLivre(login: string, ignorarId?: string) {
+  const existente = await prisma.usuario.findFirst({
+    where: {
+      login: { equals: login, mode: 'insensitive' },
+      ...(ignorarId ? { id: { not: ignorarId } } : {}),
+    },
+    select: { id: true },
+  });
+  if (existente) throw new ErroHttp(409, 'Este login já está em uso');
+}
+
 export async function rotasUsuarios(app: FastifyInstance) {
   app.addHook('preHandler', app.autenticar);
   app.addHook('preHandler', app.exigirPerfil('ADMIN'));
@@ -67,6 +79,7 @@ export async function rotasUsuarios(app: FastifyInstance) {
 
   app.post('/usuarios', async (req, reply) => {
     const { senha, ...dados } = usuarioCriarSchema.parse(req.body);
+    await garantirLoginLivre(dados.login);
     const u = await prisma.usuario.create({
       data: { ...dados, senhaHash: await bcrypt.hash(senha, 10) },
       select: selectUsuario,
@@ -77,6 +90,7 @@ export async function rotasUsuarios(app: FastifyInstance) {
   app.put('/usuarios/:id', async (req) => {
     const { id } = idParams.parse(req.params);
     const dados = usuarioAtualizarSchema.parse(req.body);
+    await garantirLoginLivre(dados.login, id);
     if (id === req.usuario.id && (!dados.ativo || dados.perfil !== 'ADMIN'))
       throw new ErroHttp(
         400,

@@ -67,6 +67,22 @@ function dadosUsuario(u: UsuarioComVinculos) {
   };
 }
 
+/**
+ * Login sem diferenciar maiúsculas/minúsculas ("Diogo" = "diogo"). Se houver logins
+ * antigos que só diferem na caixa, vale o que for idêntico ao digitado; sem um idêntico,
+ * o login ambíguo é recusado.
+ */
+async function buscarPorLogin(login: string) {
+  const candidatos = await prisma.usuario.findMany({
+    where: { login: { equals: login, mode: 'insensitive' } },
+    include: incluirVinculos,
+    take: 5,
+  });
+  return (
+    candidatos.find((c) => c.login === login) ?? (candidatos.length === 1 ? candidatos[0] : null)
+  );
+}
+
 export async function rotasAuth(app: FastifyInstance) {
   app.post(
     '/auth/login',
@@ -84,10 +100,7 @@ export async function rotasAuth(app: FastifyInstance) {
     },
     async (req) => {
       const dados = loginSchema.parse(req.body);
-      const u = await prisma.usuario.findUnique({
-        where: { login: dados.login },
-        include: incluirVinculos,
-      });
+      const u = await buscarPorLogin(dados.login);
       const ok = u ? await bcrypt.compare(dados.senha, u.senhaHash) : false;
       if (!u || !ok) throw new ErroHttp(401, 'Usuário ou senha inválidos');
       validarAcesso(u, dados.origem);

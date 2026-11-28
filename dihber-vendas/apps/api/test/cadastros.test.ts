@@ -196,3 +196,35 @@ describe('usuários', () => {
     expect(r.statusCode).toBe(400);
   });
 });
+
+describe('usuários: login em minúsculas', () => {
+  it('salva o login em minúsculas e recusa repetido com outra caixa', async () => {
+    const v = await req('POST', '/vendedores', c.tokens.admin, { codigo: 'V30', nome: 'Vend 30' });
+    const r = await req('POST', '/usuarios', c.tokens.admin, {
+      nome: 'Diogo',
+      login: 'Diogo',
+      senha: '123456',
+      perfil: 'VENDEDOR',
+      vendedorId: v.json().id,
+    });
+    expect(r.statusCode).toBe(201);
+    expect(r.json().login).toBe('diogo');
+    const dup = await req('POST', '/usuarios', c.tokens.admin, {
+      nome: 'Outro',
+      login: 'DIOGO',
+      senha: '123456',
+      perfil: 'ADMIN',
+    });
+    expect(dup.statusCode).toBe(409);
+    expect(dup.json().erro).toBe('Este login já está em uso');
+    // editar o próprio usuário mantendo o login não conta como repetido
+    const put = await req('PUT', `/usuarios/${r.json().id}`, c.tokens.admin, {
+      nome: 'Diogo B',
+      login: 'Diogo',
+      perfil: 'VENDEDOR',
+      vendedorId: v.json().id,
+      ativo: true,
+    });
+    expect(put.statusCode).toBe(200);
+  });
+});

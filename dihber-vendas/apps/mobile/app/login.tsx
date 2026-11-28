@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-na
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../src/contexto/Auth';
-import { Botao, Campo } from '../src/components/ui';
+import { Botao, Campo, CampoSenha } from '../src/components/ui';
 import { cores } from '../src/lib/tema';
 import { lerMeta } from '../src/db';
 
@@ -55,13 +55,16 @@ export default function Login() {
             onChangeText={setLogin}
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="username"
+            textContentType="username"
             returnKeyType="next"
           />
-          <Campo
+          <CampoSenha
             rotulo="Senha"
             value={senha}
             onChangeText={setSenha}
-            secureTextEntry
+            autoComplete="password"
+            textContentType="password"
             returnKeyType="go"
             onSubmitEditing={enviar}
           />
