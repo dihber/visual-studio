@@ -54,3 +54,19 @@ describe('mensagens em português', () => {
     expect(msgs.join()).not.toMatch(/Required|Expected/);
   });
 });
+
+import { formatarSistema } from './formatacao';
+describe('formatarSistema', () => {
+  it('converte o fingerprint do Android', () => {
+    expect(
+      formatarSistema(
+        'samsung/beyond0ltexx/beyond0:12/SP1A.210812.016/G970FXXSGHWC1:user/release-keys 12',
+      ),
+    ).toBe('Android 12');
+  });
+  it('mantém valores já legíveis', () => {
+    expect(formatarSistema('Android 14')).toBe('Android 14');
+    expect(formatarSistema('iOS 18.1')).toBe('iOS 18.1');
+    expect(formatarSistema(null)).toBeNull();
+  });
+});

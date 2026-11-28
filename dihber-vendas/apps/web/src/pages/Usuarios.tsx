@@ -8,6 +8,7 @@ import {
   usuarioAtualizarSchema,
   usuarioCriarSchema,
   usuarioSenhaSchema,
+  formatarSistema,
 } from '@dihber/shared';
 import { z } from 'zod';
 import { http } from '@/api/cliente';
@@ -244,9 +245,9 @@ function DialogDispositivos({ usuario, aoFechar }: { usuario: Usuario; aoFechar:
               <tr key={d.id}>
                 <Td>
                   <div className="font-medium">{d.modelo ?? '-'}</div>
-                  <div className="font-mono text-xs text-slate-400">{d.deviceId}</div>
+                  <div className="font-mono text-xs text-slate-400 break-all">{d.deviceId}</div>
                 </Td>
-                <Td>{d.sistema ?? '-'}</Td>
+                <Td>{formatarSistema(d.sistema) ?? '-'}</Td>
                 <Td>{d.appVersao ?? '-'}</Td>
                 <Td>{formatarDataHora(d.ultimoSync)}</Td>
                 <Td>{formatarDataHora(d.createdAt)}</Td>

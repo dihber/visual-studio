@@ -36,3 +36,14 @@ export function formatarCpfCnpj(v: string): string {
   if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
   return v;
 }
+
+/**
+ * Deixa legível o sistema do aparelho. Versões antigas do app gravavam no Android o
+ * "fingerprint" interno (ex.: "samsung/beyond0ltexx/beyond0:12/SP1A.../...:user/release-keys"),
+ * que vira "Android 12".
+ */
+export function formatarSistema(sistema: string | null | undefined): string | null {
+  if (!sistema) return null;
+  const fingerprint = sistema.match(/^[^/\s]+\/[^/\s]+\/[^:\s]+:([\d.]+)\//);
+  return fingerprint ? `Android ${fingerprint[1]}` : sistema;
+}

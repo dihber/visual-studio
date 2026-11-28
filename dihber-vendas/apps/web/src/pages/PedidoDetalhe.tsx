@@ -9,6 +9,7 @@ import {
   formatarMoeda,
   formatarQuantidade,
   reprovarSchema,
+  formatarSistema,
 } from '@dihber/shared';
 import { http } from '@/api/cliente';
 import type { PedidoDetalhe as Pedido } from '@/api/tipos';
@@ -138,7 +139,9 @@ export function PedidoDetalhe() {
             <Info
               rotulo="Celular"
               valor={
-                [p.dispositivo.modelo, p.dispositivo.sistema].filter(Boolean).join(' · ') || '-'
+                [p.dispositivo.modelo, formatarSistema(p.dispositivo.sistema)?.replace(/ /g, '\u00a0')]
+                  .filter(Boolean)
+                  .join(' · ') || '-'
               }
             />
             <Info rotulo="Versão do app" valor={p.dispositivo.appVersao ?? '-'} />
@@ -298,7 +301,7 @@ function Info({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
     <div className="flex gap-2">
       <dt className="w-28 shrink-0 text-slate-500">{rotulo}</dt>
-      <dd className="min-w-0 font-medium text-slate-800">{valor}</dd>
+      <dd className="min-w-0 font-medium text-slate-800 [overflow-wrap:anywhere]">{valor}</dd>
     </div>
   );
 }
