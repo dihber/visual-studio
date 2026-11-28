@@ -1,0 +1,92 @@
+# Gera o APK Android do DihberVendas na Expo (EAS Build).
+# Disparado pelo botão "Gerar APK" do portal (API → GitHub), mas também pode ser rodado
+# manualmente em Actions › Gerar APK › Run workflow.
+# Requer o secret EXPO_TOKEN (Settings › Secrets and variables › Actions).
+name: Gerar APK
+run-name: Gerar APK ${{ inputs.build_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: ID do build no portal (preenchido automaticamente)
+        required: false
+        default: manual
+      callback_url:
+        description: Endereço para avisar o portal (preenchido automaticamente)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gerar-apk
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    env:
+      CALLBACK_URL: ${{ inputs.callback_url }}
+    defaults:
+      run:
+        working-directory: dihber-vendas
+    steps:
+      - name: Avisar o portal que começou
+        working-directory: .
+        run: |
+          [ -z "$CALLBACK_URL" ] && exit 0
+          curl -sS -m 30 -X POST "$CALLBACK_URL" -H 'Content-Type: application/json' \
+            -d "{\"runId\":\"$GITHUB_RUN_ID\",\"status\":\"GERANDO\"}" || true
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: dihber-vendas/pnpm-lock.yaml
+
+      - name: Instalar dependências do app
+        run: pnpm install --frozen-lockfile --filter mobile...
+
+      - name: Gerar APK na Expo
+        working-directory: dihber-vendas/apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Falta o secret EXPO_TOKEN no repositório (Settings › Secrets and variables › Actions)."
+            exit 1
+          fi
+          npx --yes eas-cli@latest build --platform android --profile preview \
+            --non-interactive --wait --json > build.json
+          node -e '
+            const b = [].concat(JSON.parse(require("fs").readFileSync("build.json","utf8")))[0] || {};
+            const url = b.artifacts && (b.artifacts.buildUrl || b.artifacts.applicationArchiveUrl);
+            if (!url) { console.error("Build sem link de download:", JSON.stringify(b).slice(0, 500)); process.exit(1); }
+            const versao = [b.appVersion, b.appBuildVersion && "(" + b.appBuildVersion + ")"].filter(Boolean).join(" ");
+            const out = { runId: process.env.GITHUB_RUN_ID, status: "CONCLUIDO", urlDownload: url, versao: versao || null, easBuildId: b.id || null };
+            require("fs").writeFileSync("resultado.json", JSON.stringify(out));
+            console.log("APK:", url, versao);
+          '
+
+      - name: Avisar o portal que terminou
+        working-directory: dihber-vendas/apps/mobile
+        run: |
+          [ -z "$CALLBACK_URL" ] && exit 0
+          curl -fsS -m 30 --retry 3 -X POST "$CALLBACK_URL" -H 'Content-Type: application/json' -d @resultado.json
+
+      - name: Avisar o portal que falhou
+        if: failure()
+        working-directory: .
+        run: |
+          [ -z "$CALLBACK_URL" ] && exit 0
+          curl -sS -m 30 --retry 3 -X POST "$CALLBACK_URL" -H 'Content-Type: application/json' \
+            -d "{\"runId\":\"$GITHUB_RUN_ID\",\"status\":\"FALHOU\",\"erro\":\"O build falhou no GitHub. Veja os detalhes no link da execução.\"}" || true
