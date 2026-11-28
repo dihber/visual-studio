@@ -73,3 +73,24 @@ export async function buscarRun(runId: string): Promise<RunGithub | null> {
   if (!r.ok) return null;
   return (await r.json()) as RunGithub;
 }
+
+/** Etapas (steps) do job que gera o APK, para mostrar o progresso. */
+export async function buscarPassosRun(
+  runId: string,
+): Promise<{ name: string; status: string; started_at?: string | null }[] | null> {
+  const { token, repo } = configGithub();
+  if (!token || !/^\d{1,20}$/.test(runId)) return null;
+  try {
+    const r = await fetch(`https://api.github.com/repos/${repo}/actions/runs/${runId}/jobs`, {
+      headers: cabecalhos(token),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return null;
+    const j = (await r.json()) as {
+      jobs?: { steps?: { name: string; status: string; started_at?: string | null }[] }[];
+    };
+    return j.jobs?.[0]?.steps ?? null;
+  } catch {
+    return null;
+  }
+}

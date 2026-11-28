@@ -179,3 +179,10 @@ export interface AppBuild {
   erro: string | null;
   solicitadoPor: { id: string; nome: string };
 }
+
+export interface ProgressoBuild {
+  percentual: number;
+  etapa: string;
+  decorridoSeg: number;
+  restanteSeg: number | null;
+}

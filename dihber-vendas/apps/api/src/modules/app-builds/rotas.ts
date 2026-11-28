@@ -2,7 +2,14 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
 import { ErroHttp, naoEncontrado } from '../../lib/erros';
-import { buscarRun, configGithub, dispararWorkflow, WORKFLOW_ARQUIVO } from './github';
+import {
+  buscarPassosRun,
+  buscarRun,
+  configGithub,
+  dispararWorkflow,
+  WORKFLOW_ARQUIVO,
+} from './github';
+import { calcularProgresso, type Progresso } from './progresso';
 
 /** Builds parados há mais que isso são considerados perdidos. */
 const LIMITE_MINUTOS = 90;
@@ -75,7 +82,29 @@ export async function rotasAppBuilds(app: FastifyInstance) {
       orderBy: { solicitadoEm: 'desc' },
       take: 15,
     });
-    return { configurado: !!configGithub().token, builds };
+    const atual = builds[0];
+    let progresso: Progresso | null = null;
+    if (atual && (EM_ANDAMENTO as readonly string[]).includes(atual.status)) {
+      // referência de tempo: duração do último APK gerado com sucesso
+      const ultimo = await prisma.appBuild.findFirst({
+        where: { status: 'CONCLUIDO', concluidoEm: { not: null } },
+        orderBy: { concluidoEm: 'desc' },
+        select: { solicitadoEm: true, concluidoEm: true },
+      });
+      const run = await prisma.appBuild.findUnique({
+        where: { id: atual.id },
+        select: { githubRunId: true },
+      });
+      progresso = calcularProgresso({
+        solicitadoEm: atual.solicitadoEm,
+        agora: new Date(),
+        passos: run?.githubRunId ? await buscarPassosRun(run.githubRunId) : null,
+        duracaoReferenciaMs: ultimo
+          ? ultimo.concluidoEm!.getTime() - ultimo.solicitadoEm.getTime()
+          : null,
+      });
+    }
+    return { configurado: !!configGithub().token, builds, progresso };
   });
 
   /** Botão "Gerar APK". */

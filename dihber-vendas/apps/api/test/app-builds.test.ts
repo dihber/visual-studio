@@ -44,7 +44,7 @@ function simularGithub(opcoes: { dispatchStatus?: number; run?: Record<string, u
 describe('gerar APK', () => {
   it('sem GITHUB_TOKEN_APK informa que não está configurado', async () => {
     const r = await req('GET', '/app-builds', c.tokens.admin);
-    expect(r.json()).toEqual({ configurado: false, builds: [] });
+    expect(r.json()).toEqual({ configurado: false, builds: [], progresso: null });
     const p = await req('POST', '/app-builds', c.tokens.admin);
     expect(p.statusCode).toBe(400);
     expect(p.json().erro).toMatch(/GITHUB_TOKEN_APK/);

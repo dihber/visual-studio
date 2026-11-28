@@ -4,7 +4,7 @@ import { Download, ExternalLink, Loader2, Smartphone } from 'lucide-react';
 import QRCode from 'qrcode';
 import { formatarDataHora } from '@dihber/shared';
 import { http } from '@/api/cliente';
-import type { AppBuild, StatusBuildApp } from '@/api/tipos';
+import type { AppBuild, ProgressoBuild, StatusBuildApp } from '@/api/tipos';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from './ui/button';
 import { Dialog } from './ui/dialog';
@@ -42,9 +42,12 @@ function DialogAppAndroid({ aoFechar }: { aoFechar: () => void }) {
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: ['/app-builds'],
-    queryFn: () => http.get<{ configurado: boolean; builds: AppBuild[] }>('/app-builds'),
-    // enquanto gera, atualiza sozinho a cada 15 s
-    refetchInterval: (query) => (emAndamento(query.state.data?.builds[0]) ? 15_000 : false),
+    queryFn: () =>
+      http.get<{ configurado: boolean; builds: AppBuild[]; progresso: ProgressoBuild | null }>(
+        '/app-builds',
+      ),
+    // enquanto gera, atualiza sozinho a cada 10 s
+    refetchInterval: (query) => (emAndamento(query.state.data?.builds[0]) ? 10_000 : false),
   });
   const gerar = useMutation({
     mutationFn: () => http.post<AppBuild>('/app-builds'),
@@ -69,28 +72,7 @@ function DialogAppAndroid({ aoFechar }: { aoFechar: () => void }) {
         )}
 
         {emAndamento(atual) && (
-          <div className="flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin" />
-            <div>
-              <p className="font-medium">
-                {atual!.status === 'NA_FILA' ? 'Na fila para gerar o APK…' : 'Gerando o APK…'}
-              </p>
-              <p>
-                Leva de 15 a 20 minutos. Pode fechar esta janela: o APK aparece aqui quando ficar
-                pronto.
-              </p>
-              {atual!.githubRunUrl && (
-                <a
-                  href={atual!.githubRunUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1 inline-flex items-center gap-1 underline"
-                >
-                  Acompanhar no GitHub <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
-            </div>
-          </div>
+          <BarraProgresso build={atual!} progresso={q.data?.progresso ?? null} />
         )}
 
         {atual?.status === 'FALHOU' && <Alerta>Último pedido falhou: {atual.erro}</Alerta>}
@@ -180,6 +162,74 @@ function Pronto({ build }: { build: AppBuild }) {
           </Button>
         </a>
       </div>
+    </div>
+  );
+}
+
+function duracao(seg: number) {
+  const m = Math.floor(seg / 60);
+  const s = seg % 60;
+  return m > 0 ? `${m} min ${String(s).padStart(2, '0')} s` : `${s} s`;
+}
+
+/** Barra de progresso da geração (etapa atual + tempo decorrido/estimado). */
+function BarraProgresso({
+  build,
+  progresso,
+}: {
+  build: AppBuild;
+  progresso: ProgressoBuild | null;
+}) {
+  const pct = progresso?.percentual ?? 1;
+  const etapa =
+    progresso?.etapa ?? (build.status === 'NA_FILA' ? 'Na fila do GitHub' : 'Gerando o APK');
+  return (
+    <div className="space-y-3 rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+      <div className="flex items-center justify-between gap-3">
+        <p className="flex items-center gap-2 font-medium">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> {etapa}
+        </p>
+        <span className="text-lg font-semibold tabular-nums">{pct}%</span>
+      </div>
+      <div
+        className="h-3 w-full overflow-hidden rounded-full bg-blue-100"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct}
+        aria-label="Progresso da geração do APK"
+      >
+        <div
+          className="h-full rounded-full bg-primary transition-[width] duration-1000 ease-out"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="flex flex-wrap justify-between gap-2 text-xs text-blue-800">
+        <span>Decorrido: {progresso ? duracao(progresso.decorridoSeg) : '—'}</span>
+        <span>
+          {progresso?.restanteSeg
+            ? `Faltam cerca de ${Math.max(1, Math.round(progresso.restanteSeg / 60))} min`
+            : progresso
+              ? 'Demorando um pouco mais que o normal (fila da Expo)'
+              : 'Leva de 15 a 20 minutos'}
+        </span>
+      </div>
+      <p className="text-xs text-blue-800">
+        Pode fechar esta janela: o APK aparece aqui quando ficar pronto.
+        {build.githubRunUrl && (
+          <>
+            {' '}
+            <a
+              href={build.githubRunUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 underline"
+            >
+              Acompanhar no GitHub <ExternalLink className="h-3 w-3" />
+            </a>
+          </>
+        )}
+      </p>
     </div>
   );
 }
