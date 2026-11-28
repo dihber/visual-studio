@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
   formatarCpfCnpj,
+  cancelarSchema,
   formatarDataHora,
   pedidosQuerySchema,
   reprovarSchema,
@@ -192,6 +193,7 @@ export async function rotasPedidos(app: FastifyInstance) {
         vendedor: { include: { supervisor: { select: { id: true, nome: true } } } },
         dispositivo: true,
         avaliadoPor: { select: { id: true, nome: true } },
+        canceladoPor: { select: { id: true, nome: true } },
         itens: {
           include: {
             produto: {
@@ -255,6 +257,33 @@ export async function rotasPedidos(app: FastifyInstance) {
         { status: 'REPROVADO', motivoReprovacao: motivo },
         filtroVisibilidadePedidos(req.usuario),
       );
+    },
+  );
+
+  /** Cancela pedido pendente ou aprovado. O vendedor recebe o status no próximo sync. */
+  app.post(
+    '/pedidos/:id/cancelar',
+    { preHandler: [app.exigirPerfil('ADMIN', 'SUPERVISOR')] },
+    async (req) => {
+      const { id } = idParams.parse(req.params);
+      const { motivo } = cancelarSchema.parse(req.body);
+      const pedido = await prisma.pedido.findFirst({
+        where: { AND: [{ id }, filtroVisibilidadePedidos(req.usuario)] },
+      });
+      if (!pedido) throw naoEncontrado('Pedido');
+      // condição de status no próprio update evita corrida com aprovação/cancelamento simultâneos
+      const r = await prisma.pedido.updateMany({
+        where: { id, status: { in: ['PENDENTE', 'APROVADO'] } },
+        data: {
+          status: 'CANCELADO',
+          motivoCancelamento: motivo,
+          canceladoPorId: req.usuario.id,
+          canceladoEm: new Date(),
+        },
+      });
+      if (r.count === 0)
+        throw new ErroHttp(409, 'Somente pedidos pendentes ou aprovados podem ser cancelados');
+      return prisma.pedido.findUnique({ where: { id }, include: includeLista });
     },
   );
 }

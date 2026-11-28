@@ -47,6 +47,7 @@ export interface SyncDadosResposta {
     numero: number;
     status: (typeof STATUS_PEDIDO)[number];
     motivoReprovacao: string | null;
+    motivoCancelamento: string | null;
   }[];
 }
 
@@ -91,4 +92,8 @@ export type PedidosQuery = z.infer<typeof pedidosQuerySchema>;
 
 export const reprovarSchema = z.object({
   motivo: z.string().trim().min(3, 'Informe o motivo da reprovação').max(500),
+});
+
+export const cancelarSchema = z.object({
+  motivo: z.string().trim().min(3, 'Informe o motivo do cancelamento').max(500),
 });

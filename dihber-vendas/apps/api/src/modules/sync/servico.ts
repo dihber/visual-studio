@@ -124,7 +124,13 @@ export async function montarDados(vendedorId: string, desde?: string): Promise<S
     prisma.produto.findMany({ where: filtro, orderBy: { descricao: 'asc' } }),
     prisma.pedido.findMany({
       where: { vendedorId, ...(desde ? { updatedAt: { gte: new Date(desde) } } : {}) },
-      select: { id: true, numero: true, status: true, motivoReprovacao: true },
+      select: {
+        id: true,
+        numero: true,
+        status: true,
+        motivoReprovacao: true,
+        motivoCancelamento: true,
+      },
       orderBy: { numero: 'desc' },
       take: desde ? undefined : 500,
     }),

@@ -62,6 +62,8 @@ const MIGRACOES: string[] = [
   );
   CREATE INDEX IF NOT EXISTS idx_itens_pedido ON pedido_itens(pedidoId);
   `,
+  // v2: motivo do cancelamento feito no portal
+  `ALTER TABLE pedidos ADD COLUMN motivoCancelamento TEXT;`,
 ];
 
 export function migrarBanco() {

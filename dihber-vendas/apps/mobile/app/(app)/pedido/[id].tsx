@@ -59,6 +59,14 @@ export default function DetalhePedido() {
             <Text style={st.alertaTexto}>{p.motivoReprovacao}</Text>
           </Cartao>
         )}
+        {p.status === 'CANCELADO' && (
+          <Cartao estilo={st.alertaCancelado}>
+            <Text style={st.alertaTituloCancelado}>Pedido cancelado</Text>
+            {!!p.motivoCancelamento && (
+              <Text style={st.alertaTextoCancelado}>{p.motivoCancelamento}</Text>
+            )}
+          </Cartao>
+        )}
         {naoEnviado && !!p.erroEnvio && (
           <Cartao estilo={st.alertaErro}>
             <Text style={st.alertaTitulo}>Recusado no último envio</Text>
@@ -125,4 +133,7 @@ const st = StyleSheet.create({
   alertaErro: { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2', gap: 4 },
   alertaTitulo: { fontWeight: '800', color: cores.perigo },
   alertaTexto: { color: '#7F1D1D', fontSize: 15 },
+  alertaCancelado: { borderColor: '#CBD5E1', backgroundColor: '#F1F5F9', gap: 4 },
+  alertaTituloCancelado: { fontWeight: '800', color: '#334155' },
+  alertaTextoCancelado: { color: '#1E293B', fontSize: 15 },
 });

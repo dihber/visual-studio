@@ -28,7 +28,15 @@
       "typedRoutes": false
     },
     "extra": {
-      "apiUrl": "http://192.168.0.10:3333/api/v1"
+      "apiUrl": "http://192.168.0.10:3333/api/v1",
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "ff4688b5-2a44-45c6-aa33-59273d29de3f"
+      }
     },
     "platforms": [
       "ios",

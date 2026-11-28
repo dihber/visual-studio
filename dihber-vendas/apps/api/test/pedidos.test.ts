@@ -100,3 +100,58 @@ describe('resumo, vendas da equipe e exportação', () => {
     expect(linhas[0]).toContain('Número;Data;Status');
   });
 });
+
+describe('cancelar', () => {
+  it('vendedor não cancela', async () => {
+    const r = await post(`/pedidos/${ids.v2}/cancelar`, c.tokens.vendedor2, { motivo: 'teste' });
+    expect(r.statusCode).toBe(403);
+  });
+  it('supervisor não cancela pedido de outra equipe', async () => {
+    const r = await post(`/pedidos/${ids.vb}/cancelar`, c.tokens.supervisor, { motivo: 'teste' });
+    expect(r.statusCode).toBe(404);
+  });
+  it('cancelar exige motivo', async () => {
+    expect((await post(`/pedidos/${ids.v2}/cancelar`, c.tokens.admin, {})).statusCode).toBe(400);
+  });
+  it('cancela pedido aprovado, registra auditoria e não altera de novo', async () => {
+    const r = await post(`/pedidos/${ids.v1}/cancelar`, c.tokens.supervisor, {
+      motivo: 'Cliente desistiu',
+    });
+    expect(r.statusCode).toBe(200);
+    expect(r.json().status).toBe('CANCELADO');
+    const det = (await get(`/pedidos/${ids.v1}`, c.tokens.admin)).json();
+    expect(det.motivoCancelamento).toBe('Cliente desistiu');
+    expect(det.canceladoPor.nome).toBe('Sup A');
+    expect(det.canceladoEm).toBeTruthy();
+    expect(det.avaliadoPor.nome).toBe('Sup A'); // aprovação anterior continua registrada
+    expect(
+      (await post(`/pedidos/${ids.v1}/cancelar`, c.tokens.admin, { motivo: 'de novo' })).statusCode,
+    ).toBe(409);
+    expect((await post(`/pedidos/${ids.v1}/aprovar`, c.tokens.admin)).statusCode).toBe(409);
+  });
+  it('cancela pedido pendente e o status volta para o app do vendedor', async () => {
+    const r = await post(`/pedidos/${ids.v2}/cancelar`, c.tokens.admin, {
+      motivo: 'Pedido duplicado',
+    });
+    expect(r.statusCode).toBe(200);
+    const dados = (
+      await c.app.inject({
+        method: 'GET',
+        url: `/api/v1/sync/dados?deviceId=${dispositivo.deviceId}`,
+        headers: auth(c.tokens.vendedor2),
+      })
+    ).json();
+    expect(dados.statusPedidos).toContainEqual({
+      id: ids.v2,
+      numero: expect.any(Number),
+      status: 'CANCELADO',
+      motivoReprovacao: null,
+      motivoCancelamento: 'Pedido duplicado',
+    });
+  });
+  it('resumo e vendas da equipe deixam de contar cancelados', async () => {
+    const r = (await get('/pedidos/resumo', c.tokens.supervisor)).json();
+    expect(r).toMatchObject({ pendentes: 0, aprovados: 0, totalVendido: 0 });
+    expect((await get('/pedidos/vendas-equipe', c.tokens.supervisor)).json()).toEqual([]);
+  });
+});

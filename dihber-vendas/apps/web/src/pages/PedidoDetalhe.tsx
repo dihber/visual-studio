@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, X } from 'lucide-react';
+import { ArrowLeft, Ban, Check, X } from 'lucide-react';
 import {
+  cancelarSchema,
   formatarCpfCnpj,
   formatarDataHora,
   formatarMoeda,
@@ -25,6 +26,7 @@ export function PedidoDetalhe() {
   const { usuario } = useAuth();
   const qc = useQueryClient();
   const [reprovando, setReprovando] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
   const [motivo, setMotivo] = useState('');
   const [erro, setErro] = useState('');
 
@@ -34,10 +36,11 @@ export function PedidoDetalhe() {
   });
 
   const avaliar = useMutation({
-    mutationFn: (acao: 'aprovar' | 'reprovar') =>
-      http.post(`/pedidos/${id}/${acao}`, acao === 'reprovar' ? { motivo } : undefined),
+    mutationFn: (acao: 'aprovar' | 'reprovar' | 'cancelar') =>
+      http.post(`/pedidos/${id}/${acao}`, acao === 'aprovar' ? undefined : { motivo }),
     onSuccess: () => {
       setReprovando(false);
+      setCancelando(false);
       qc.invalidateQueries({ queryKey: ['/pedidos'] });
       qc.invalidateQueries({ queryKey: ['/pedidos/resumo'] });
     },
@@ -47,8 +50,15 @@ export function PedidoDetalhe() {
   if (q.isLoading) return <p className="text-slate-500">Carregando...</p>;
   if (q.error || !q.data) return <Alerta>{q.error?.message ?? 'Pedido não encontrado'}</Alerta>;
   const p = q.data;
-  const podeAvaliar =
-    p.status === 'PENDENTE' && (usuario?.perfil === 'ADMIN' || usuario?.perfil === 'SUPERVISOR');
+  const gestor = usuario?.perfil === 'ADMIN' || usuario?.perfil === 'SUPERVISOR';
+  const podeAvaliar = gestor && p.status === 'PENDENTE';
+  const podeCancelar = gestor && (p.status === 'PENDENTE' || p.status === 'APROVADO');
+  const abrirDialogo = (qual: 'reprovar' | 'cancelar') => {
+    setErro('');
+    setMotivo('');
+    setReprovando(qual === 'reprovar');
+    setCancelando(qual === 'cancelar');
+  };
 
   return (
     <div className="space-y-4">
@@ -64,38 +74,45 @@ export function PedidoDetalhe() {
           <h1 className="text-2xl font-semibold">Pedido nº {p.numero}</h1>
           <BadgeStatus status={p.status} />
         </div>
-        {podeAvaliar && (
-          <div className="flex gap-2">
-            <Button
-              variante="perigo"
-              onClick={() => {
-                setErro('');
-                setMotivo('');
-                setReprovando(true);
-              }}
-            >
-              <X className="h-4 w-4" /> Reprovar
-            </Button>
-            <Button
-              variante="sucesso"
-              carregando={avaliar.isPending && !reprovando}
-              onClick={() => {
-                if (confirm(`Aprovar o pedido nº ${p.numero}?`)) {
-                  setErro('');
-                  avaliar.mutate('aprovar');
-                }
-              }}
-            >
-              <Check className="h-4 w-4" /> Aprovar
-            </Button>
+        {(podeAvaliar || podeCancelar) && (
+          <div className="flex flex-wrap gap-2">
+            {podeCancelar && (
+              <Button variante="secundario" onClick={() => abrirDialogo('cancelar')}>
+                <Ban className="h-4 w-4" /> Cancelar pedido
+              </Button>
+            )}
+            {podeAvaliar && (
+              <Button variante="perigo" onClick={() => abrirDialogo('reprovar')}>
+                <X className="h-4 w-4" /> Reprovar
+              </Button>
+            )}
+            {podeAvaliar && (
+              <Button
+                variante="sucesso"
+                carregando={avaliar.isPending && !reprovando && !cancelando}
+                onClick={() => {
+                  if (confirm(`Aprovar o pedido nº ${p.numero}?`)) {
+                    setErro('');
+                    avaliar.mutate('aprovar');
+                  }
+                }}
+              >
+                <Check className="h-4 w-4" /> Aprovar
+              </Button>
+            )}
           </div>
         )}
       </div>
-      {!reprovando && <Alerta>{erro}</Alerta>}
+      {!reprovando && !cancelando && <Alerta>{erro}</Alerta>}
 
       {p.status === 'REPROVADO' && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <strong>Motivo da reprovação:</strong> {p.motivoReprovacao}
+        </div>
+      )}
+      {p.status === 'CANCELADO' && (
+        <div className="rounded-md border border-slate-300 bg-slate-100 px-4 py-3 text-sm text-slate-800">
+          <strong>Motivo do cancelamento:</strong> {p.motivoCancelamento ?? '-'}
         </div>
       )}
 
@@ -136,6 +153,12 @@ export function PedidoDetalhe() {
               <Info
                 rotulo={p.status === 'APROVADO' ? 'Aprovado' : 'Avaliado'}
                 valor={`${formatarDataHora(p.avaliadoEm)} por ${p.avaliadoPor?.nome ?? '-'}`}
+              />
+            )}
+            {p.canceladoEm && (
+              <Info
+                rotulo="Cancelado"
+                valor={`${formatarDataHora(p.canceladoEm)} por ${p.canceladoPor?.nome ?? '-'}`}
               />
             )}
           </dl>
@@ -220,6 +243,48 @@ export function PedidoDetalhe() {
         </Campo>
         <p className="mt-1 text-xs text-slate-500">
           O vendedor verá este motivo no app após sincronizar.
+        </p>
+        <div className="mt-3">
+          <Alerta>{erro}</Alerta>
+        </div>
+      </Dialog>
+
+      <Dialog
+        aberto={cancelando}
+        aoFechar={() => setCancelando(false)}
+        titulo={`Cancelar pedido nº ${p.numero}`}
+        rodape={
+          <>
+            <Button variante="secundario" onClick={() => setCancelando(false)}>
+              Voltar
+            </Button>
+            <Button
+              variante="perigo"
+              carregando={avaliar.isPending}
+              onClick={() => {
+                const r = cancelarSchema.safeParse({ motivo });
+                if (!r.success) return setErro(r.error.issues[0].message);
+                setErro('');
+                avaliar.mutate('cancelar');
+              }}
+            >
+              Cancelar pedido
+            </Button>
+          </>
+        }
+      >
+        <Campo label="Motivo do cancelamento" obrigatorio>
+          <Textarea
+            autoFocus
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            maxLength={500}
+            placeholder="Ex.: cliente desistiu da compra"
+          />
+        </Campo>
+        <p className="mt-1 text-xs text-slate-500">
+          O pedido não é excluído: fica com status Cancelado e o vendedor verá o motivo no app após
+          sincronizar.
         </p>
         <div className="mt-3">
           <Alerta>{erro}</Alerta>

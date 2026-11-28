@@ -104,6 +104,38 @@ describe.skipIf(!API)('integração app ⇄ API', () => {
     expect(final.numero).toBe(enviado.numero);
   });
 
+  it('pedido cancelado no portal volta para o app com o motivo', async () => {
+    const cliente = m.buscarClientes('')[0];
+    const produto = m.buscarProdutos('arroz')[0];
+    const id = randomUUID();
+    m.salvarPedido({
+      id,
+      cliente,
+      itens: [{ produto, tipoEmbalagem: 'UN', quantidade: 3 }],
+      observacao: 'teste cancelamento',
+      gerarId: randomUUID,
+    });
+    expect((await sync.sincronizar(() => undefined)).enviados).toBe(1);
+
+    const login = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ login: 'admin', senha: 'admin123', origem: 'web' }),
+    }).then((x) => x.json());
+    const can = await fetch(`${API}/pedidos/${id}/cancelar`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${login.accessToken}` },
+      body: JSON.stringify({ motivo: 'Cancelado no teste de integração' }),
+    });
+    expect(can.status).toBe(200);
+
+    const r = await sync.sincronizar(() => undefined);
+    expect(r.statusAtualizados).toBe(1);
+    const final = m.obterPedido(id)!.pedido;
+    expect(final.status).toBe('CANCELADO');
+    expect(final.motivoCancelamento).toBe('Cancelado no teste de integração');
+  });
+
   it('pedido recusado fica marcado com o erro e não se perde', async () => {
     const cliente = { ...m.buscarClientes('')[0], id: randomUUID() }; // cliente inexistente
     const produto = m.buscarProdutos('')[0];

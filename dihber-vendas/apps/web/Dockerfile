@@ -10,6 +10,8 @@ RUN pnpm install --frozen-lockfile --filter web...
 RUN pnpm --filter web build
 
 FROM nginx:1.27-alpine
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+# template: a imagem do nginx troca ${PORT} e ${API_UPSTREAM} pelos valores do ambiente
+COPY apps/web/nginx.conf /etc/nginx/templates/default.conf.template
+ENV PORT=80 API_UPSTREAM=http://api:3333 NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 EXPOSE 80

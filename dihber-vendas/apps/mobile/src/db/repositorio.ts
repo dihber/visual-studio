@@ -38,6 +38,7 @@ export interface PedidoLocal {
   numero: number | null;
   status: StatusPedido | null;
   motivoReprovacao: string | null;
+  motivoCancelamento: string | null;
   erroEnvio: string | null;
   enviadoEm: string | null;
 }
@@ -301,14 +302,21 @@ export function marcarErroEnvio(id: string, erro: string) {
 }
 
 export function atualizarStatusPedidos(
-  lista: { id: string; numero: number; status: StatusPedido; motivoReprovacao: string | null }[],
+  lista: {
+    id: string;
+    numero: number;
+    status: StatusPedido;
+    motivoReprovacao: string | null;
+    /** Opcional: API antiga não envia. */
+    motivoCancelamento?: string | null;
+  }[],
 ) {
   let n = 0;
   db.withTransactionSync(() => {
     for (const s of lista) {
       const r = db.runSync(
-        `UPDATE pedidos SET status=?, motivoReprovacao=?, numero=?, situacao='ENVIADO', erroEnvio=NULL WHERE id = ?`,
-        [s.status, s.motivoReprovacao, s.numero, s.id],
+        `UPDATE pedidos SET status=?, motivoReprovacao=?, motivoCancelamento=?, numero=?, situacao='ENVIADO', erroEnvio=NULL WHERE id = ?`,
+        [s.status, s.motivoReprovacao, s.motivoCancelamento ?? null, s.numero, s.id],
       );
       n += r.changes;
     }

@@ -156,7 +156,13 @@ describe('GET /sync/dados', () => {
     expect(rep.statusCode).toBe(200);
     const depois = (await dados(c.tokens.vendedor1, antes.servidorAgora)).json();
     expect(depois.statusPedidos).toEqual([
-      { id: p!.id, numero: p!.numero, status: 'REPROVADO', motivoReprovacao: 'Cliente com débito' },
+      {
+        id: p!.id,
+        numero: p!.numero,
+        status: 'REPROVADO',
+        motivoReprovacao: 'Cliente com débito',
+        motivoCancelamento: null,
+      },
     ]);
     // vendedor 2 não recebe status de pedidos do vendedor 1
     const v2 = (await dados(c.tokens.vendedor2)).json();

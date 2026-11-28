@@ -97,6 +97,9 @@ export interface PedidoDetalhe extends Omit<PedidoLista, '_count' | 'cliente' | 
   motivoReprovacao: string | null;
   avaliadoEm: string | null;
   avaliadoPor: { id: string; nome: string } | null;
+  motivoCancelamento: string | null;
+  canceladoEm: string | null;
+  canceladoPor: { id: string; nome: string } | null;
   cliente: Cliente;
   dispositivo: Dispositivo;
   itens: {
