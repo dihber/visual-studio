@@ -16,6 +16,7 @@
     "android": {
       "package": "br.com.dihber.vendas",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2563EB"
       }
     },
@@ -41,6 +42,10 @@
     "platforms": [
       "ios",
       "android"
-    ]
+    ],
+    "icon": "./assets/icon.png",
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
   }
 }
